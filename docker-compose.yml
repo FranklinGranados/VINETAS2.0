@@ -55,6 +55,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Falta JWT_SECRET en .env}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-43200}
       FRONTEND_URL: http://localhost:${WEB_PORT:-8090}
+      # Opcional: BD original en SQL Server (diagnóstico probar-sqlserver).
+      SQLSERVER_URL: ${SQLSERVER_URL:-}
     depends_on:
       mysql:
         condition: service_healthy

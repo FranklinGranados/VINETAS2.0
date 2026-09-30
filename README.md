@@ -129,6 +129,68 @@ Desde otras PCs de la red: `http://<IP-de-esta-PC>:8090`. La IP se ve con `ipcon
 > La impresión de viñetas funciona igual que en desarrollo: se imprime desde el navegador de la
 > PC que tiene la Brady M611 conectada (ver [Impresión de viñetas](#impresión-de-viñetas-brady-m611)).
 
+## Probar la conexión con la base de datos original (SQL Server)
+
+Antes de conectar el sistema a la base de datos del programa anterior, un diagnóstico verifica
+la conexión y muestra cómo son los datos reales:
+[`backend/scripts/probar-sqlserver.ts`](backend/scripts/probar-sqlserver.ts).
+
+**Es de solo lectura**: únicamente ejecuta `SELECT`, nunca modifica la base de datos. Muestra:
+versión del servidor, tablas con su cantidad de registros, 3 filas de ejemplo de `equipos`,
+`vinetas`, `Instrumentistas` y `Areas` (**nunca** la columna de contraseñas), estados de los
+equipos, TAG repetidos y el rango de viñetas.
+
+> ⚠ Se ejecuta desde una PC **dentro de la red de la empresa** (la que llega al servidor SQL Server).
+
+### 1. Armar la cadena de conexión
+Sirve la misma cadena del programa anterior (`App.config`), agregándole al final
+`;Encrypt=false;TrustServerCertificate=true`:
+```
+Data Source=IP\SQLEXPRESS;Initial Catalog=Vinetas;User ID=USUARIO;Password=CLAVE;Encrypt=false;TrustServerCertificate=true
+```
+Va en **una sola línea**, en la variable `SQLSERVER_URL`, **entre comillas simples**:
+```
+SQLSERVER_URL='Data Source=IP\SQLEXPRESS;Initial Catalog=Vinetas;User ID=USUARIO;Password=CLAVE;Encrypt=false;TrustServerCertificate=true'
+```
+- con Docker: en el `.env` de la raíz del proyecto;
+- sin Docker: en `backend/.env`.
+
+Las comillas simples son importantes: si la contraseña tiene un `$`, sin ellas Docker Compose lo
+interpreta como una variable y la contraseña llega cortada (el error sería `ELOGIN`).
+
+**Nunca** se sube al repositorio (los `.env` están en el `.gitignore`).
+
+### 2a. Ejecutar con Docker
+```powershell
+docker compose up -d --build
+docker compose exec backend node dist/scripts/probar-sqlserver.js
+```
+(`--build` hace falta la primera vez, para que la imagen incluya el script.)
+
+### 2b. Ejecutar sin Docker (con Node.js)
+```powershell
+cd backend
+npm install
+npx ts-node scripts/probar-sqlserver.ts
+```
+
+### Si no conecta
+
+| Código en el mensaje | Qué significa / qué revisar |
+|---|---|
+| `ETIMEOUT` / `ESOCKET` | No hay red hasta el servidor: IP correcta, PC dentro de la red de la empresa, firewall del servidor (TCP 1433 o el puerto de la instancia) |
+| `EINSTLOOKUP` | No encuentra la instancia `\SQLEXPRESS`: el servicio **SQL Server Browser** debe estar iniciado en el servidor (y el firewall permitir UDP 1434). Alternativa: usar el puerto fijo de la instancia, `Data Source=IP,PUERTO` |
+| `ELOGIN` | Usuario o contraseña incorrectos, o el usuario no tiene acceso a la base `Vinetas` |
+| Menciona `SSL` / `TLS` | Verificar que la cadena tenga `Encrypt=false;TrustServerCertificate=true`. Si el servidor es muy antiguo y sin actualizaciones, puede requerir TLS 1.0: probar anteponiendo `$env:NODE_OPTIONS="--tls-min-v1.0"` al comando (solo sin Docker) |
+
+El puerto de la instancia se ve en el servidor: *SQL Server Configuration Manager* →
+*Protocolos de SQLEXPRESS* → *TCP/IP* → pestaña *Direcciones IP* → *IPAll*.
+
+### Impresora en otra PC
+Si la Brady M611 está conectada por USB a una PC distinta de donde corre Docker: en **esa** PC se
+abre `http://<IP-del-servidor>:8090` y se imprime desde su navegador. La impresión siempre sale de
+la PC que tiene la impresora.
+
 ## Cómo levantar el entorno de desarrollo (para programar)
 
 Se necesitan **3 procesos** corriendo a la vez, cada uno en su propia terminal:
