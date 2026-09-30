@@ -13,6 +13,8 @@ que sigue en producción durante la transición y **no forma parte de este repos
 | [`backend/`](backend/) | API en NestJS + Prisma |
 | [`frontend/`](frontend/) | Interfaz web en React + Vite + TypeScript |
 | [`media/`](media/) | Foto de la viñeta original (referencia de diseño) y logo |
+| [`CLAUDE.md`](CLAUDE.md) | Contexto del proyecto para Claude Code (decisiones, estado, pendientes). Se actualiza en cada commit |
+| [`.claude/`](.claude/) | Configuración compartida de Claude Code: hook que exige actualizar `CLAUDE.md` en cada commit |
 
 ### Stack
 - **Backend:** Node.js + NestJS + Prisma

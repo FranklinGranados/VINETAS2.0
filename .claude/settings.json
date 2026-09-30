@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/exigir-claude-md.js\"",
+            "timeout": 15,
+            "statusMessage": "Verificando que CLAUDE.md vaya en el commit..."
+          }
+        ]
+      }
+    ]
+  }
+}

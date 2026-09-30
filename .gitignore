@@ -32,6 +32,9 @@ coverage/
 
 # === Editores / SO ===
 .vscode/
+# Configuración PERSONAL de Claude Code (permisos de cada PC). La compartida
+# (.claude/settings.json con el hook de CLAUDE.md) sí se sube.
+.claude/settings.local.json
 .idea/
 .DS_Store
 Thumbs.db
