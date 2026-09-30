@@ -1,0 +1,35 @@
+# === Excluido del repositorio público ===
+# Proyecto legacy (Windows Forms / C#): su configuración tenía la cadena de
+# conexión a SQL Server de producción. Queda solo en la PC local.
+/viñetas/
+/viñetas.sln
+/packages/
+# Datos internos de la empresa (inventario de equipos y script de la BD vieja)
+/Mantenimiento2026/
+/bd.sql
+
+# === Proyecto legacy (Windows Forms / Visual Studio) ===
+.vs/
+[Bb]in/
+[Oo]bj/
+packages/
+*.user
+*.suo
+
+# === Proyectos Node (backend/, frontend/) ===
+node_modules/
+dist/
+build/
+/generated/
+coverage/
+
+# Variables de entorno — nunca subir credenciales
+.env
+.env.*
+!.env.example
+
+# === Editores / SO ===
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

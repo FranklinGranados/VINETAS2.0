@@ -1,0 +1,16 @@
+/* Reset mínimo. El grueso del reset de estilos (tipografía base,
+   normalización entre navegadores, etc.) ya lo trae antd/dist/reset.css,
+   importado en main.tsx. Acá solo lo que antd no cubre: que #root ocupe
+   toda la altura disponible para que el Layout de Ant Design (sidebar +
+   contenido) pueda estirarse a pantalla completa. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100vh;
+}

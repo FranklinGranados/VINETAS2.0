@@ -1,0 +1,8 @@
+# Finales de línea: el repositorio guarda siempre LF (estándar en proyectos
+# Node y lo que espera Prettier), sin importar si se trabaja en Windows.
+* text=auto eol=lf
+
+# Binarios: git no debe intentar convertirlos ni mostrar diffs de texto.
+*.png binary
+*.jpg binary
+*.jpeg binary
