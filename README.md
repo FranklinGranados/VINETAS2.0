@@ -20,7 +20,116 @@ que sigue en producción durante la transición y **no forma parte de este repos
 - **Frontend:** React + Vite + TypeScript, Ant Design (UI), TanStack Query (datos), React Router, axios
 - **Impresión:** Brady M611, cartucho M6-31-423 (ver [Impresión de viñetas](#impresión-de-viñetas-brady-m611))
 
-## Cómo levantar el entorno de desarrollo
+## Despliegue con Docker (pruebas)
+
+Levanta el sistema completo con un solo comando, en 3 contenedores:
+
+```
+Navegador ──► :8090  [frontend: nginx]
+                       ├─ /        → la aplicación React (ya compilada)
+                       └─ /api/... → [backend: NestJS] ──► [mysql 8.4]
+```
+
+El navegador solo habla con nginx (puerto 8090). El backend y la base de datos quedan dentro de
+la red interna de Docker.
+
+### Requisitos
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado y **abierto**
+  (el ícono de la ballena en la barra de tareas debe estar en verde / "Engine running").
+- Git.
+
+### Paso a paso (PowerShell)
+
+**1. Descargar el proyecto** (solo la primera vez):
+```powershell
+git clone https://github.com/FranklinGranados/VINETAS2.0.git
+cd VINETAS2.0
+```
+Si ya lo tienes, entra a la carpeta y trae la última versión con `git pull`.
+
+**2. Crear el archivo de configuración** `.env` a partir del ejemplo:
+```powershell
+Copy-Item .env.example .env
+```
+
+**3. Generar las claves** y pegarlas en `.env` (abrirlo con `notepad .env`):
+```powershell
+# Clave para MYSQL_ROOT_PASSWORD (solo letras y números):
+node -e "console.log(require('crypto').randomBytes(12).toString('hex'))"
+# Clave para JWT_SECRET:
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+Si esa PC no tiene Node.js, sirve cualquier texto largo de letras y números inventado.
+**Guarda la clave de MySQL**: la necesitas para conectarte a la base de datos.
+
+**4. Construir y levantar:**
+```powershell
+docker compose up -d --build
+```
+La primera vez tarda varios minutos (descarga imágenes e instala dependencias). Al terminar,
+verificar que los 3 contenedores estén corriendo y MySQL diga `(healthy)`:
+```powershell
+docker compose ps
+```
+
+**5. Crear el primer administrador** (solo la primera vez, o para resetear una contraseña):
+```powershell
+docker compose exec backend node dist/scripts/seed-admin.js 1001 "Nombre Apellido" "contraseña"
+```
+(`1001` = código de empleado, que es el usuario para iniciar sesión.)
+
+**6. Abrir la aplicación:** http://localhost:8090
+
+Desde otras PCs de la red: `http://<IP-de-esta-PC>:8090`. La IP se ve con `ipconfig`
+("Dirección IPv4"). Si no abre, hay que permitir el puerto 8090 en el Firewall de Windows.
+
+### Comandos del día a día
+
+| Qué | Comando |
+|---|---|
+| Ver estado de los contenedores | `docker compose ps` |
+| Ver logs del backend (en vivo, `Ctrl+C` para salir) | `docker compose logs -f backend` |
+| Detener todo (**los datos se conservan**) | `docker compose down` |
+| Volver a levantar | `docker compose up -d` |
+| Actualizar a la última versión del código | `git pull` y luego `docker compose up -d --build` |
+| Reiniciar solo el backend | `docker compose restart backend` |
+
+### Base de datos
+
+- **Conectarse** con MySQL Workbench / DBeaver: host `localhost`, puerto `3307`, usuario `root`,
+  contraseña = `MYSQL_ROOT_PASSWORD` del `.env`, base de datos `vinetas`.
+- La primera vez, las tablas y las áreas/sub-áreas se crean solas desde
+  [`database/schema.sql`](database/schema.sql).
+- **Respaldo** (genera `respaldo.sql` en la carpeta actual):
+  ```powershell
+  docker compose exec mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" vinetas > /tmp/respaldo.sql'
+  docker compose cp mysql:/tmp/respaldo.sql ./respaldo.sql
+  ```
+  (Se hace en dos pasos a propósito: redirigir con `>` directamente en PowerShell 5 guarda el
+  archivo en UTF-16 y corrompe las tildes.) El aviso `Using a password on the command line
+  interface can be insecure` es normal en este comando. Los `respaldo*.sql` están en el
+  `.gitignore`: contienen datos reales y nunca deben subirse al repositorio.
+- **Borrar TODO y empezar de cero** (⚠ elimina todos los datos: equipos, viñetas, técnicos):
+  ```powershell
+  docker compose down -v
+  docker compose up -d
+  ```
+
+### Si algo falla
+
+| Síntoma | Qué revisar |
+|---|---|
+| `port is already allocated` al levantar | Otro programa usa el 8090 o el 3307: cambiar `WEB_PORT` o `MYSQL_PORT` en `.env` y volver a levantar |
+| `Falta MYSQL_ROOT_PASSWORD en .env` (o `JWT_SECRET`) | No se creó el `.env` (paso 2) o falta esa línea |
+| La app abre pero dice "No se pudo cargar…" | `docker compose logs backend` — el error exacto aparece ahí |
+| El backend se reinicia una y otra vez | `docker compose logs backend`; si menciona la base de datos, verificar `docker compose ps` que mysql esté `(healthy)` |
+| Cambié `MYSQL_ROOT_PASSWORD` y ya no conecta | La clave se fija la **primera** vez que se crea la base. Volver a la clave anterior, o borrar todo con `docker compose down -v` (⚠ pierde los datos) |
+| Docker dice que no encuentra el motor | Abrir Docker Desktop y esperar a que diga "Engine running" |
+
+> La impresión de viñetas funciona igual que en desarrollo: se imprime desde el navegador de la
+> PC que tiene la Brady M611 conectada (ver [Impresión de viñetas](#impresión-de-viñetas-brady-m611)).
+
+## Cómo levantar el entorno de desarrollo (para programar)
 
 Se necesitan **3 procesos** corriendo a la vez, cada uno en su propia terminal:
 

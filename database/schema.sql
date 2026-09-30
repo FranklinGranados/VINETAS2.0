@@ -4,6 +4,12 @@
 -- Ingenio La Cabaña — Departamento de Metrología e Instrumentación
 -- =============================================================================
 
+-- Este archivo está en UTF-8. SET NAMES le dice a MySQL cómo interpretar
+-- los bytes que le llegan: sin esto, un cliente configurado en latin1 (como
+-- el que ejecuta los scripts de inicio del contenedor Docker de MySQL) lee
+-- "ó" como dos caracteres raros y los guarda así ("ExtracciÃ³n").
+SET NAMES utf8mb4;
+
 CREATE DATABASE IF NOT EXISTS vinetas
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;

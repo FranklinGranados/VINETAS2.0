@@ -7,6 +7,8 @@
 # Datos internos de la empresa (inventario de equipos y script de la BD vieja)
 /Mantenimiento2026/
 /bd.sql
+# Respaldos de la base de datos (docker compose ... mysqldump): datos reales
+respaldo*.sql
 
 # === Proyecto legacy (Windows Forms / Visual Studio) ===
 .vs/

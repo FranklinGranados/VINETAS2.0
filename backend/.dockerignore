@@ -1,0 +1,11 @@
+# Lo que NO se copia a la imagen con `COPY . .`
+# .env: las credenciales entran por variables de entorno del
+# docker-compose, nunca "horneadas" dentro de la imagen.
+.env
+.env.*
+!.env.example
+node_modules
+dist
+coverage
+test
+*.log
