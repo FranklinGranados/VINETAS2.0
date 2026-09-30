@@ -131,6 +131,77 @@ Desde otras PCs de la red: `http://<IP-de-esta-PC>:8090`. La IP se ve con `ipcon
 > La impresión de viñetas funciona igual que en desarrollo: se imprime desde el navegador de la
 > PC que tiene la Brady M611 conectada (ver [Impresión de viñetas](#impresión-de-viñetas-brady-m611)).
 
+## Sin Docker (Windows)
+
+Si en la PC no se puede instalar Docker, hay dos caminos según lo que se quiera probar.
+Requisito para ambos: **Node.js 20 o superior** (verificar con `node -v`) y Git.
+
+### Camino A — Solo probar la conexión a la base de datos original (SQL Server)
+**No necesita MySQL ni Docker.** El diagnóstico es un script aparte que solo lee SQL Server.
+
+```powershell
+git clone https://github.com/FranklinGranados/VINETAS2.0.git
+cd VINETAS2.0\backend
+npm install
+Copy-Item .env.example .env
+notepad .env
+```
+En `backend/.env` completar **solo** la línea `SQLSERVER_URL` (IP del servidor, usuario y clave;
+entre comillas simples — ver [Probar la conexión con la base de datos original](#probar-la-conexión-con-la-base-de-datos-original-sql-server)).
+El resto de las líneas no se usan para esto. Guardar y ejecutar:
+```powershell
+npx ts-node scripts/probar-sqlserver.ts
+```
+
+### Camino B — Levantar la aplicación completa (como en desarrollo)
+Hoy el backend guarda sus datos en **MySQL o MariaDB**. Sin Docker, lo más simple es usar el
+MariaDB que trae **XAMPP** o **Laragon** (probado con MariaDB 10.4, la versión de XAMPP).
+
+**1. Base de datos**
+- Iniciar MySQL/MariaDB desde el panel de XAMPP (o Laragon).
+- Crear la base con [`database/schema.sql`](database/schema.sql), de una de estas dos formas:
+  - **phpMyAdmin** (http://localhost/phpmyadmin): sin seleccionar ninguna base, pestaña
+    **Importar** → elegir `database/schema.sql` → Continuar. Crea la base `vinetas` con sus tablas
+    y las áreas/sub-áreas.
+  - **Consola**, desde la carpeta del proyecto:
+    ```powershell
+    cmd /c "C:\xampp\mysql\bin\mysql.exe -u root < database\schema.sql"
+    ```
+    (Con `cmd /c` a propósito: la redirección `<` no existe en PowerShell, y pasar el archivo con
+    `Get-Content | mysql` en PowerShell 5 corrompe las tildes.)
+
+**2. Backend** (terminal 1)
+```powershell
+cd backend
+npm install
+Copy-Item .env.example .env
+notepad .env
+```
+En `backend/.env`:
+- `DATABASE_URL`: con XAMPP (usuario `root` sin contraseña) queda
+  `DATABASE_URL="mysql://root:@127.0.0.1:3306/vinetas"`. Si root tiene clave: `mysql://root:CLAVE@127.0.0.1:3306/vinetas`.
+- `JWT_SECRET`: cualquier texto largo de letras y números.
+- `SQLSERVER_URL`: opcional (solo para el diagnóstico del camino A).
+
+```powershell
+npm run start:dev
+```
+Debe terminar con `Nest application successfully started`. Primer administrador (en otra terminal,
+dentro de `backend`):
+```powershell
+npm run seed:admin -- 1001 "Nombre Apellido" "clave"
+```
+
+**3. Frontend** (terminal 2)
+```powershell
+cd frontend
+npm install
+Copy-Item .env.example .env
+npm run dev
+```
+Abrir **http://localhost:5173**. Desde otra PC de la red (por ejemplo la que tiene la impresora),
+este modo de desarrollo no sirve tal cual: para eso conviene el despliegue con Docker.
+
 ## Probar la conexión con la base de datos original (SQL Server)
 
 Antes de conectar el sistema a la base de datos del programa anterior, un diagnóstico verifica
@@ -169,7 +240,7 @@ docker compose exec backend node dist/scripts/probar-sqlserver.js
 ```
 (`--build` hace falta la primera vez, para que la imagen incluya el script.)
 
-### 2b. Ejecutar sin Docker (con Node.js)
+### 2b. Ejecutar sin Docker (con Node.js) — no necesita MySQL
 ```powershell
 cd backend
 npm install

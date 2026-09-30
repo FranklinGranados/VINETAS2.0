@@ -67,6 +67,11 @@ Excluidos del repo por `.gitignore`: `viñetas/` (v1), `viñetas.sln`, `packages
   `docker compose exec backend node dist/scripts/seed-admin.js <cod> "<nombre>" <clave>`.
 - **Desarrollo**: MySQL local + `cd backend && npm run start:dev` (:3000) + `cd frontend && npm run dev`
   (:5173, `strictPort`). Admin: `npm run seed:admin -- <cod> "<nombre>" <clave>`.
+- **Sin Docker** (en la PC de la empresa NO se puede instalar Docker): README "Sin Docker (Windows)".
+  Camino A: el diagnóstico SQL Server solo necesita Node (`npx ts-node scripts/probar-sqlserver.ts`,
+  no usa MySQL). Camino B: app completa con el MariaDB de XAMPP/Laragon — **probado con MariaDB
+  10.4**: `schema.sql` carga bien (tildes OK) y el backend funciona sin cambios. Importar schema con
+  phpMyAdmin o `cmd /c "mysql -u root < database\schema.sql"` (nunca `Get-Content |` en PS5).
 - **Chequeos**: `cd frontend && npx tsc -p tsconfig.app.json --noEmit && npx oxlint src`;
   `cd backend && npx tsc --noEmit -p tsconfig.json && npx eslint <archivo>`.
 - **Pruebas en navegador**: Playwright instalado FUERA del proyecto (carpeta temporal) usando el
