@@ -155,6 +155,34 @@ Mantenimiento char150), `vinetas2016…2024` (históricos, sin 2019), `Instrumen
 CodEmp, Pass, cargo — nunca mostrar Pass), `Areas` (ID, Tag = área+sub-área ej. "0101", Area texto;
 sin FK). Columnas CHAR con espacios de relleno → hacer trim. v1 calcula IDs con `MAX()+1`.
 
+**Estado REAL de la BD de producción** (relevado en la PC de la empresa, 2026-09-30; el detalle con
+datos de infraestructura está en `media/*.txt`, excluido del repo). Difiere de `bd.sql`:
+- `equipos` (~2.2k filas) tiene columna nueva **`TAG_Control` varchar(50)** (significado por confirmar).
+  `ID` no es IDENTITY → v1 usa `MAX(ID)+1`.
+- `Instrumentistas` (~21) tiene columna nueva **`Inactivo` bit** (→ `activo = !Inactivo`).
+- `vinetas` = año activo (2026, ~1.2k filas); históricos `vinetas2016…2025` (sin 2019). Al cerrar el
+  año se "congela" en una tabla nueva y `vinetas` queda para el año siguiente.
+- Nuevas: `Certificados2024`, `CertificadoMano2024`, `equipos_backup_20260903` (respaldo, ignorar).
+- `Areas` (~150 filas) NO se relaciona con nada (catálogo viejo sin uso): la ubicación NO debe salir de
+  ahí. `equipos.Area` es texto libre.
+- **No hay ninguna FK declarada** en toda la BD. Relaciones implícitas: `vinetas.ID → equipos.ID`
+  (confiable); `vinetas.TAG` = foto congelada (puede no coincidir con `equipos.TAG` actual);
+  `vinetas.Realizo → Instrumentistas.Instrumentistas` por **texto** (RTRIM); `Instrumentistas.CodEmp`
+  apunta a una BD de RR.HH. en otro servidor.
+- El diagnóstico `probar-sqlserver.ts` funciona con esta estructura (probado simulándola).
+
+Implicaciones para el adaptador SQL Server (a resolver al diseñarlo):
+- **Truncamiento**: `vinetas` tiene `TAG char(15)`, `Descripcion char(84)`, `Informacion char(40)`,
+  `Realizo char(20)` — más cortos que en la BD nueva (30/200/100). Validar/recortar antes de insertar
+  o SQL Server rechaza con "String or binary data would be truncated".
+- `Nvineta` y `equipos.ID` con `MAX()+1` mientras v1 sigue escribiendo → posible colisión: insertar
+  dentro de una transacción con bloqueo (`UPDLOCK, HOLDLOCK`) y reintentar ante clave duplicada.
+- Historial = `vinetas` UNION `vinetas20xx`; "ya tiene viñeta este año" y dashboard = solo `vinetas`.
+- `Realizo` guarda el NOMBRE del técnico (no un ID); `Proximo` es texto `MM/yyyy`.
+- Login de admin: `Instrumentistas.Pass` es char(6) en texto plano → NO usarlo; decidir dónde viven las
+  credenciales de admin en modo SQL Server (tabla nueva propia sin tocar las de v1, o MySQL aparte).
+- Datos de v1 con `EnUSO=1` y `Hibernacion=1` a la vez: al leer, hibernación manda.
+
 Existe además una BD depurada con los equipos bien nombrados (formato por confirmar con el usuario:
 "otro motor / Excel"). Los Excel de inventario tienen equipos repetidos.
 

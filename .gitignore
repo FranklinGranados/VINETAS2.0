@@ -9,6 +9,9 @@
 /bd.sql
 # Respaldos de la base de datos (docker compose ... mysqldump): datos reales
 respaldo*.sql
+# Notas de la BD de producción (IPs y nombres de servidores internos, conteos
+# reales). Se comparten entre PCs a mano, nunca por el repositorio público.
+/media/*.txt
 
 # === Proyecto legacy (Windows Forms / Visual Studio) ===
 .vs/
