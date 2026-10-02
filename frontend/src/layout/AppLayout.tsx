@@ -2,6 +2,7 @@ import { useIsFetching } from '@tanstack/react-query';
 import { Button, Layout, Menu, Space, Spin, Typography } from 'antd';
 import {
   ApartmentOutlined,
+  ClusterOutlined,
   HomeOutlined,
   LoginOutlined,
   LogoutOutlined,
@@ -44,6 +45,11 @@ const MENU_ITEMS = [
     key: '/vinetas',
     icon: <TagsOutlined />,
     label: <Link to="/vinetas">Viñetas</Link>,
+  },
+  {
+    key: '/grupos',
+    icon: <ClusterOutlined />,
+    label: <Link to="/grupos">Grupos de trabajo</Link>,
   },
   {
     key: '/areas',

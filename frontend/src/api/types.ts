@@ -7,6 +7,8 @@ export interface Area {
   id: number;
   codigo: string;
   nombre: string;
+  // true = no cuenta para el avance del mantenimiento (Inicio y grupos).
+  excluida_mantenimiento: boolean;
   sub_areas?: SubArea[];
 }
 
@@ -139,6 +141,85 @@ export interface ResumenCalibracion {
   completados: number;
   faltan: number;
   porcentaje: number;
+}
+
+// ── Grupos de trabajo (por periodo) ──
+
+export interface GrupoTrabajo {
+  id: number;
+  periodo: number;
+  nombre: string;
+  // Tablas intermedias tal como las devuelve Prisma (include anidado).
+  grupo_tecnicos: { tecnico_id: number; tecnicos: Tecnico }[];
+  grupo_sub_areas: { sub_area_id: number; sub_areas: SubArea & { areas: Area } }[];
+}
+
+export interface CreateGrupoPayload {
+  periodo: number;
+  nombre: string;
+}
+
+// ── Avance del mantenimiento (GET /dashboard/avance) ──
+
+// Totales de cualquier agrupación: todo, un grupo, un área, una sub-área.
+export interface Avance {
+  total: number;
+  completados: number;
+  pendientes: number;
+  porcentaje: number;
+  // Avanzado "esta semana": desde el corte del jueves anterior hasta hoy.
+  semana: { completados: number; porcentaje: number };
+}
+
+export interface AvanceSubArea extends Avance {
+  id: number;
+  codigo: string;
+  nombre: string;
+  // null = la sub-área no está asignada a ningún grupo en el periodo.
+  grupo: { id: number; nombre: string } | null;
+}
+
+export interface AvanceArea extends Avance {
+  id: number;
+  codigo: string;
+  nombre: string;
+  sub_areas: AvanceSubArea[];
+}
+
+export interface AvanceGrupo extends Avance {
+  id: number;
+  nombre: string;
+  tecnicos: { id: number; nombre: string }[];
+}
+
+export interface AvanceMantenimiento extends Avance {
+  periodo: number;
+  hoy: string; // "AAAA-MM-DD" en la hora local de la planta
+  corteSemanal: string; // jueves anterior, "AAAA-MM-DD"
+  vinetasHoy: number;
+  vinetasSemana: number; // impresas desde el corte hasta hoy
+  grupos: AvanceGrupo[];
+  sinGrupo: Avance;
+  areas: AvanceArea[];
+  areasExcluidas: { id: number; codigo: string; nombre: string }[];
+}
+
+// GET /dashboard/sub-areas/:id/instrumentos — cada instrumento es un Equipo
+// más su viñeta del periodo (null = pendiente).
+export interface InstrumentoConVineta extends Equipo {
+  vineta: { nvineta: number; fecha: string; tecnicos: { id: number; nombre: string } | null } | null;
+}
+
+export interface InstrumentosSubArea {
+  periodo: number;
+  total: number;
+  completados: number;
+  pendientes: number;
+  porcentaje: number;
+  area: { id: number; codigo: string; nombre: string; excluida_mantenimiento: boolean };
+  sub_area: { id: number; codigo: string; nombre: string };
+  grupo: { id: number; nombre: string } | null;
+  instrumentos: InstrumentoConVineta[];
 }
 
 // POST /auth/login

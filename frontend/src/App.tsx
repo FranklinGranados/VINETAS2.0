@@ -8,6 +8,7 @@ import { AreasPage } from './pages/AreasPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { GruposPage } from './pages/GruposPage';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/tecnicos" element={<TecnicosPage />} />
         <Route path="/vinetas" element={<VinetasPage />} />
         <Route path="/areas" element={<AreasPage />} />
+        <Route path="/grupos" element={<GruposPage />} />
 
         {/* "Otras Viñetas": etiquetas de impresión directa (sin formulario
             de captura ni registro nuevo en BD) — pendientes de la Brady M611. */}

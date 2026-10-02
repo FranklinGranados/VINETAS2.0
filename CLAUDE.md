@@ -46,7 +46,7 @@ Vite); no se usa `dayjs` directo (fechas con inputs nativos `type=date`/`type=mo
 ```
 backend/   src/{areas,auth,common,dashboard,equipos,prisma,tecnicos,vinetas}, scripts/, prisma/schema.prisma
 frontend/  src/{api,auth,components,layout,pages,utils,assets}, nginx.conf
-database/  schema.sql  (BD MySQL nueva; la carga Docker en el primer arranque)
+database/  schema.sql  (BD MySQL nueva; la carga Docker en el primer arranque) + migraciones/
 media/     foto de la viñeta original + logo
 docker-compose.yml, .env.example (raíz → Docker), backend/.env.example, frontend/.env.example
 .claude/   settings.json (hook compartido) + hooks/exigir-claude-md.js
@@ -72,6 +72,13 @@ Excluidos del repo por `.gitignore`: `viñetas/` (v1), `viñetas.sln`, `packages
   no usa MySQL). Camino B: app completa con el MariaDB de XAMPP/Laragon — **probado con MariaDB
   10.4**: `schema.sql` carga bien (tildes OK) y el backend funciona sin cambios. Importar schema con
   phpMyAdmin o `cmd /c "mysql -u root < database\schema.sql"` (nunca `Get-Content |` en PS5).
+- **Logs en tiempo real**: `ver-logs.bat` (raíz, doble clic) → `scripts/ver-logs.ps1` (PowerShell 5.1:
+  guardado con BOM UTF-8 y CRLF —sin BOM PS5 rompe las tildes—; `.gitattributes` fuerza CRLF en
+  .bat/.ps1). Sigue `docker compose logs -f`, colorea error/advertencia, filtra, convierte la marca
+  de tiempo UTC de Docker a hora local, quita códigos ANSI y guarda opcional en `/logs/` (ignorado).
+  El backend registra cada petición con `common/registro-peticiones.middleware.ts` (método, ruta,
+  código, ms; 4xx = WARN, 5xx = ERROR; NUNCA body/headers). En Docker: `TZ` y `NO_COLOR=1` en el
+  backend (compose) para logs en hora local y sin códigos de color.
 - **Chequeos**: `cd frontend && npx tsc -p tsconfig.app.json --noEmit && npx oxlint src`;
   `cd backend && npx tsc --noEmit -p tsconfig.json && npx eslint <archivo>`.
 - **Pruebas en navegador**: Playwright instalado FUERA del proyecto (carpeta temporal) usando el
@@ -94,8 +101,8 @@ Tablas: `areas`, `sub_areas`, `tecnicos`, `equipos`, `vinetas`. Rediseño de la 
 - Códigos de área = prefijo numérico de los TAG: 01 Calderas, 02 Extracción, 03 Alcalizado/Sacarato,
   05 Evaporadores, 06 Tachos, 07 CV, 08 Centrífugas, 09 Secadora, 10 Clarificación, 11 Filtro Banda,
   12 Laboratorio, 13 Generación Eléctrica, 14 PTAR.
-- Si se hace `prisma db pull`: re-renombrar a mano las relaciones `tecnico_revisor` (en vinetas) y
-  `vinetas_revisadas` (en tecnicos), que introspection nombra de forma ilegible.
+- `prisma db pull` CONSERVA los nombres de relación puestos a mano (`tecnico_revisor`,
+  `vinetas_revisadas`) pero BORRA los comentarios del schema.prisma: guardar copia antes y restaurarlos.
 
 ## Reglas de negocio implementadas
 
@@ -116,6 +123,43 @@ Tablas: `areas`, `sub_areas`, `tecnicos`, `equipos`, `vinetas`. Rediseño de la 
   (`EquiposService.aplicarExclusionDeEstados`: hibernacion→en_uso=false, en_uso→hibernacion=false,
   ambos true → 400). La tabla muestra un solo estado.
 - Crear: solo 4 campos (DTO + `forbidNonWhitelisted`); modificar: todos. Vaciar un campo = `null`.
+
+**Grupos de trabajo** (2026-09-30, pedido del usuario; inspirado en su "programa de rutinas"):
+- Tablas `grupos_trabajo` (periodo, nombre; UNIQUE periodo+nombre), `grupo_tecnicos`,
+  `grupo_sub_areas`. Reglas garantizadas POR LA BD: técnico en 1 solo grupo por periodo
+  (UNIQUE tecnico_id+periodo) y sub-área en 1 solo grupo por periodo (UNIQUE sub_area_id+periodo).
+  El `periodo` copiado en las tablas intermedias no puede divergir: FK COMPUESTA
+  (grupo_id, periodo) → grupos_trabajo(id, periodo). ON DELETE CASCADE al borrar el grupo.
+- "Asignar área completa" = asignar todas sus sub-áreas (TreeSelect con SHOW_CHILD). Sub-áreas
+  creadas después NO se agregan solas.
+- API: `GET /grupos?periodo=` (abierto), `POST/PATCH/DELETE /grupos` y `PUT /grupos/:id/tecnicos`
+  `{tecnico_ids}` / `PUT /grupos/:id/sub-areas` `{sub_area_ids}` (admin; PUT REEMPLAZA la lista en una
+  transacción; 409 con nombres si algo ya está en otro grupo).
+- `GET /dashboard/avance?periodo=` (total + grupos + `sinGrupo` + áreas→sub-áreas) y
+  `GET /dashboard/sub-areas/:id/instrumentos?periodo=` (equipos activos + su viñeta del periodo o
+  null). Activo = en_uso && !hibernacion en TODO el cálculo; los totales cuadran (verificado).
+- Frontend: `GruposPage` (+ `GrupoFormModal`), Inicio (`DashboardPage`) con tarjetas de grupos y
+  áreas, `InstrumentosSubAreaDrawer` (imprimir pendientes con `useFlujoVineta`), `SelectorPeriodo`,
+  `ImagenArea` (GIF en `frontend/public/areas/<codigo>.gif`, el usuario los hará con Gemini; fallback
+  Avatar de color con el código).
+- Bases ya creadas: `database/migraciones/001-grupos-trabajo.sql` (Docker solo corre schema.sql con
+  volumen vacío).
+- Comparado con el dashboard de Rutinas (sistema ASP.NET de la planta, otro repo; 2026-10-01): allí los
+  grupos son permanentes, un empleado puede estar en varios, y el área sale del texto `equipos.Area` +
+  palabras clave. Se mantuvo nuestro diseño (por periodo, exclusivo, por sub-área con ID) y se
+  adoptaron 3 cosas a pedido del usuario:
+  - **Avance de la semana**: corte = JUEVES anterior (`common/fecha-local.ts` → `corteSemanal`; si hoy
+    es jueves, el de hace 7 días). Cada Avance trae `semana: {completados, porcentaje}` (puntos de %
+    sobre el total de hoy); `/dashboard/avance` trae `hoy`, `corteSemanal`, `vinetasHoy`,
+    `vinetasSemana` (viñetas impresas, no equipos distintos).
+  - **Colores/orden**: verde ≥75, amarillo ≥40, rojo (`frontend/src/utils/avance.ts`); grupos, áreas y
+    sub-áreas ordenadas por % desc (vacías al final).
+  - **Áreas excluidas**: columna `areas.excluida_mantenimiento` (migración 002), PATCH /areas/:id
+    (admin), interruptor en la pantalla Áreas; EQUIPO_CONTABLE = activo && área no excluida, usado en
+    TODOS los totales (también resumen-calibracion). `areasExcluidas` en la respuesta.
+  - NO adoptado: ranking por técnico (el usuario no lo eligió por ahora).
+- **Zona horaria**: "hoy", el corte y el periodo por defecto se calculan en `America/Guatemala`
+  (variable `ZONA_HORARIA`) con Intl, no con la hora del servidor (en Docker es UTC).
 
 **Viñetas**:
 - `periodo` = año de `fecha` con **`getUTCFullYear()`** (con `getFullYear` el 1 de enero caía en el
@@ -184,8 +228,11 @@ Implicaciones para el adaptador SQL Server (a resolver al diseñarlo):
   dentro de una transacción con bloqueo (`UPDLOCK, HOLDLOCK`) y reintentar ante clave duplicada.
 - Historial = `vinetas` UNION `vinetas20xx`; "ya tiene viñeta este año" y dashboard = solo `vinetas`.
 - `Realizo` guarda el NOMBRE del técnico (no un ID); `Proximo` es texto `MM/yyyy`.
-- Login de admin: `Instrumentistas.Pass` es char(6) en texto plano → NO usarlo; decidir dónde viven las
-  credenciales de admin en modo SQL Server (tabla nueva propia sin tocar las de v1, o MySQL aparte).
+- Login de admin: `Instrumentistas.Pass` es char(6) en texto plano → NO usarlo. `CodEmp` (int) es el
+  usuario del login y lo usa el sistema de rutinas como ID → NO guardar ahí el hash (no cabe y rompería
+  ese enlace). Propuesta recomendada (pendiente de que el usuario la aplique desde la PC remota):
+  **tabla nueva `AdminWeb` (CodEmp, PassHash char(60), Activo)** sin tocar tablas de v1. Alternativa:
+  columnas nuevas en Instrumentistas (v1 usa SELECT * y INSERT con columnas explícitas → no rompe).
 - Datos de v1 con `EnUSO=1` y `Hibernacion=1` a la vez: al leer, hibernación manda.
 
 Existe además una BD depurada con los equipos bien nombrados (formato por confirmar con el usuario:

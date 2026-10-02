@@ -8,10 +8,11 @@ datasource db {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model areas {
-  id        Int         @id @default(autoincrement())
-  codigo    String      @unique(map: "uq_areas_codigo") @db.Char(2)
-  nombre    String      @db.VarChar(100)
-  sub_areas sub_areas[]
+  id                     Int         @id @default(autoincrement())
+  codigo                 String      @unique(map: "uq_areas_codigo") @db.Char(2)
+  nombre                 String      @db.VarChar(100)
+  excluida_mantenimiento Boolean     @default(false)
+  sub_areas              sub_areas[]
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -42,54 +43,91 @@ model equipos {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model sub_areas {
-  id      Int       @id @default(autoincrement())
-  area_id Int
-  codigo  String    @db.Char(2)
-  nombre  String    @db.VarChar(100)
-  equipos equipos[]
-  areas   areas     @relation(fields: [area_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sub_areas_area")
+  id              Int               @id @default(autoincrement())
+  area_id         Int
+  codigo          String            @db.Char(2)
+  nombre          String            @db.VarChar(100)
+  equipos         equipos[]
+  grupo_sub_areas grupo_sub_areas[]
+  areas           areas             @relation(fields: [area_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sub_areas_area")
 
   @@unique([area_id, codigo], map: "uq_sub_areas_area_codigo")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model tecnicos {
-  id                                          Int       @id @default(autoincrement())
-  nombre                                      String    @db.VarChar(100)
-  cod_empleado                                Int?      @unique(map: "uq_tecnicos_cod_empleado")
-  cargo                                       String?   @db.VarChar(50)
-  activo                                      Boolean   @default(true)
-  password_hash                               String?   @db.Char(60)
-  es_admin                                    Boolean   @default(false)
-  vinetas                                     vinetas[]
-  // Igual que arriba: nombre renombrado a mano (era
-  // "vinetas_vinetas_tecnico_reviso_idTotecnicos" tras el pull).
-  vinetas_revisadas                           vinetas[] @relation("vinetas_tecnico_reviso_idTotecnicos")
+  id                Int              @id @default(autoincrement())
+  nombre            String           @db.VarChar(100)
+  cod_empleado      Int?             @unique(map: "uq_tecnicos_cod_empleado")
+  cargo             String?          @db.VarChar(50)
+  activo            Boolean          @default(true)
+  password_hash     String?          @db.Char(60)
+  es_admin          Boolean          @default(false)
+  grupo_tecnicos    grupo_tecnicos[]
+  vinetas           vinetas[]
+  // Nombre renombrado a mano (introspection genera
+  // "vinetas_vinetas_tecnico_reviso_idTotecnicos" por ser la 2da FK a tecnicos).
+  vinetas_revisadas vinetas[]        @relation("vinetas_tecnico_reviso_idTotecnicos")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model vinetas {
-  nvineta                                      Int       @id @default(autoincrement())
-  equipo_id                                    Int
-  tecnico_id                                   Int?
-  tecnico_reviso_id                            Int?
-  periodo                                      Int       @db.Year
-  tag                                          String?   @db.VarChar(30)
-  descripcion                                  String?   @db.VarChar(200)
-  informacion                                  String?   @db.VarChar(100)
-  fecha                                        DateTime  @db.Date
-  proximo                                      DateTime? @db.Date
-  mantenimiento                                String?   @db.Text
-  equipos                                      equipos   @relation(fields: [equipo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vinetas_equipo")
-  tecnicos                                     tecnicos? @relation(fields: [tecnico_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vinetas_tecnico")
-  // Nombre de campo/relación renombrado a mano tras el "prisma db pull"
-  // (que genera "tecnicos_vinetas_tecnico_reviso_idTotecnicos" — el nombre
-  // automático para una 2da FK a la misma tabla). Si se vuelve a correr
-  // "prisma db pull", este rename se pierde y hay que repetirlo.
-  tecnico_revisor                              tecnicos? @relation("vinetas_tecnico_reviso_idTotecnicos", fields: [tecnico_reviso_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vinetas_tecnico_reviso")
+  nvineta           Int       @id @default(autoincrement())
+  equipo_id         Int
+  tecnico_id        Int?
+  tecnico_reviso_id Int?
+  periodo           Int       @db.Year
+  tag               String?   @db.VarChar(30)
+  descripcion       String?   @db.VarChar(200)
+  informacion       String?   @db.VarChar(100)
+  fecha             DateTime  @db.Date
+  proximo           DateTime? @db.Date
+  mantenimiento     String?   @db.Text
+  equipos           equipos   @relation(fields: [equipo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vinetas_equipo")
+  tecnicos          tecnicos? @relation(fields: [tecnico_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vinetas_tecnico")
+  // Nombre renombrado a mano (introspection genera
+  // "tecnicos_vinetas_tecnico_reviso_idTotecnicos" por ser la 2da FK a tecnicos).
+  // `prisma db pull` conserva este nombre, pero borra estos comentarios.
+  tecnico_revisor   tecnicos? @relation("vinetas_tecnico_reviso_idTotecnicos", fields: [tecnico_reviso_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vinetas_tecnico_reviso")
 
   @@index([equipo_id], map: "fk_vinetas_equipo")
   @@index([tecnico_id], map: "fk_vinetas_tecnico")
   @@index([periodo], map: "idx_vinetas_periodo")
   @@index([tecnico_reviso_id], map: "fk_vinetas_tecnico_reviso")
+}
+
+model grupo_sub_areas {
+  grupo_id       Int
+  sub_area_id    Int
+  periodo        Int            @db.Year
+  grupos_trabajo grupos_trabajo @relation(fields: [grupo_id, periodo], references: [id, periodo], onDelete: Cascade, onUpdate: NoAction, map: "fk_grupo_sub_areas_grupo")
+  sub_areas      sub_areas      @relation(fields: [sub_area_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_grupo_sub_areas_sub_area")
+
+  @@id([grupo_id, sub_area_id])
+  @@unique([sub_area_id, periodo], map: "uq_grupo_sub_areas_sub_area_periodo")
+  @@index([grupo_id, periodo], map: "fk_grupo_sub_areas_grupo")
+}
+
+model grupo_tecnicos {
+  grupo_id       Int
+  tecnico_id     Int
+  periodo        Int            @db.Year
+  grupos_trabajo grupos_trabajo @relation(fields: [grupo_id, periodo], references: [id, periodo], onDelete: Cascade, onUpdate: NoAction, map: "fk_grupo_tecnicos_grupo")
+  tecnicos       tecnicos       @relation(fields: [tecnico_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_grupo_tecnicos_tecnico")
+
+  @@id([grupo_id, tecnico_id])
+  @@unique([tecnico_id, periodo], map: "uq_grupo_tecnicos_tecnico_periodo")
+  @@index([grupo_id, periodo], map: "fk_grupo_tecnicos_grupo")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model grupos_trabajo {
+  id              Int               @id @default(autoincrement())
+  periodo         Int               @db.Year
+  nombre          String            @db.VarChar(60)
+  grupo_sub_areas grupo_sub_areas[]
+  grupo_tecnicos  grupo_tecnicos[]
+
+  @@unique([id, periodo], map: "uq_grupos_id_periodo")
+  @@unique([periodo, nombre], map: "uq_grupos_periodo_nombre")
 }

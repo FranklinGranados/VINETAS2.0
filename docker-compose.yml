@@ -57,6 +57,14 @@ services:
       FRONTEND_URL: http://localhost:${WEB_PORT:-8090}
       # Opcional: BD original en SQL Server (diagnóstico probar-sqlserver).
       SQLSERVER_URL: ${SQLSERVER_URL:-}
+      # Hora local en los logs (sin esto el contenedor usa UTC: 6 horas
+      # adelantado respecto a Guatemala) y en los cálculos de "hoy".
+      TZ: ${ZONA_HORARIA:-America/Guatemala}
+      ZONA_HORARIA: ${ZONA_HORARIA:-America/Guatemala}
+      # NestJS colorea sus logs con códigos de terminal que, guardados en un
+      # archivo o vistos en PowerShell 5, aparecen como basura ("[33m").
+      # NO_COLOR es la convención estándar para desactivarlos.
+      NO_COLOR: "1"
     depends_on:
       mysql:
         condition: service_healthy

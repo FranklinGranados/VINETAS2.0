@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -9,6 +9,8 @@ import { TecnicosModule } from './tecnicos/tecnicos.module';
 import { VinetasModule } from './vinetas/vinetas.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AuthModule } from './auth/auth.module';
+import { GruposModule } from './grupos/grupos.module';
+import { RegistroPeticionesMiddleware } from './common/registro-peticiones.middleware';
 
 @Module({
   imports: [
@@ -23,8 +25,15 @@ import { AuthModule } from './auth/auth.module';
     VinetasModule,
     DashboardModule,
     AuthModule,
+    GruposModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  // Registro de cada petición HTTP en el log (para seguir errores en tiempo
+  // real con ver-logs.bat). forRoutes('*') = todas las rutas.
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RegistroPeticionesMiddleware).forRoutes('*');
+  }
+}

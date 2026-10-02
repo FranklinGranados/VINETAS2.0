@@ -93,8 +93,31 @@ Desde otras PCs de la red: `http://<IP-de-esta-PC>:8090`. La IP se ve con `ipcon
 | Ver logs del backend (en vivo, `Ctrl+C` para salir) | `docker compose logs -f backend` |
 | Detener todo (**los datos se conservan**) | `docker compose down` |
 | Volver a levantar | `docker compose up -d` |
-| Actualizar a la última versión del código | `git pull` y luego `docker compose up -d --build` |
+| Actualizar a la última versión del código | `git pull` y luego `docker compose up -d --build` (si la versión trae una migración nueva, ver abajo) |
 | Reiniciar solo el backend | `docker compose restart backend` |
+
+### Ver logs en tiempo real (búsqueda de errores)
+
+Doble clic en **`ver-logs.bat`** (raíz del proyecto). Abre una terminal con un menú:
+
+| Opción | Muestra |
+|---|---|
+| 1 | Todo: backend + frontend (nginx) + base de datos |
+| 2 | Backend: **cada petición** a la API (`GET /equipos 200 - 12ms`) y los errores del servidor |
+| 3 | Frontend: cada acceso a la página (nginx) |
+| 4 | MySQL |
+| 5 | **Solo errores y advertencias** de todo |
+
+- Colores: **rojo** = error (incluye respuestas 5xx), **amarillo** = advertencia (incluye 4xx: datos
+  inválidos, sin permiso, no encontrado).
+- La hora de cada línea es la hora local de la PC.
+- Opcionalmente guarda lo que muestra en `logs/logs-AAAAMMDD-HHMMSS.txt` (carpeta excluida del
+  repositorio: puede contener datos reales).
+- `Ctrl+C` para salir.
+- Por seguridad, el backend registra método, ruta, código y duración de cada petición, **nunca** su
+  contenido (ahí viajan contraseñas).
+- Sin menú, desde PowerShell: `.\scriptser-logs.ps1 -Servicio backend -SoloErrores -Guardar`.
+- En modo desarrollo (`npm run start:dev`) los mismos logs del backend salen en su propia terminal.
 
 ### Base de datos
 
@@ -111,6 +134,10 @@ Desde otras PCs de la red: `http://<IP-de-esta-PC>:8090`. La IP se ve con `ipcon
   archivo en UTF-16 y corrompe las tildes.) El aviso `Using a password on the command line
   interface can be insecure` es normal en este comando. Los `respaldo*.sql` están en el
   `.gitignore`: contienen datos reales y nunca deben subirse al repositorio.
+- **Migraciones**: `schema.sql` solo se ejecuta la primera vez (base vacía). Si una actualización
+  agrega tablas a una base que ya tiene datos, viene un script en
+  [`database/migraciones/`](database/migraciones/) con instrucciones en su encabezado
+  (ej. `001-grupos-trabajo.sql`). Se ejecutan una sola vez, en orden.
 - **Borrar TODO y empezar de cero** (⚠ elimina todos los datos: equipos, viñetas, técnicos):
   ```powershell
   docker compose down -v
@@ -318,6 +345,26 @@ o con un cliente gráfico (MySQL Workbench, DBeaver, extensión de VS Code) a
 ```bash
 cd frontend && npx tsc -p tsconfig.app.json --noEmit
 ```
+
+## Grupos de trabajo y avance del mantenimiento
+
+- **Grupos de trabajo** (menú *Grupos de trabajo*): cada temporada el administrador arma los
+  grupos, elige sus integrantes y les asigna áreas completas o sub-áreas. Reglas: un técnico está
+  en un solo grupo por temporada y cada sub-área pertenece a un solo grupo (la base de datos lo
+  garantiza). Cualquiera puede imprimir viñetas de cualquier área: la asignación sirve para seguir
+  el avance. Ver y consultar es abierto; crear/editar/borrar requiere sesión de administrador.
+- **Inicio**: avance de la temporada — total, por grupo y por área. En cada área, *Ver sub-áreas*;
+  al hacer clic en una sub-área se abre el detalle de sus instrumentos (con viñeta / pendientes),
+  y los pendientes se pueden imprimir desde ahí.
+  - **"+X% esta semana"**: lo avanzado desde el **corte del jueves anterior** (mismo criterio que el
+    dashboard de Rutinas), y contadores de viñetas impresas hoy y desde el jueves.
+  - **Colores**: verde desde 75 %, amarillo desde 40 %, rojo por debajo. Grupos y áreas se ordenan
+    de más a menos avanzados.
+  - **Áreas excluidas**: en la pantalla *Áreas*, el interruptor *Cuenta para el avance* (solo
+    administradores) saca un área del cálculo del Inicio y de los grupos.
+- **Dibujos de las áreas**: un GIF por área en [`frontend/public/areas/`](frontend/public/areas/)
+  con el código del área como nombre (`01.gif` = Calderas, etc. — ver el `LEEME.md` de esa
+  carpeta). Mientras no estén, se muestra un distintivo de color con el código.
 
 ## Impresión de viñetas (Brady M611)
 
