@@ -76,9 +76,11 @@ docker compose ps
 
 **5. Crear el primer administrador** (solo la primera vez, o para resetear una contraseña):
 ```powershell
-docker compose exec backend node dist/scripts/seed-admin.js 1001 "Nombre Apellido" "contraseña"
+docker compose exec backend node dist/scripts/seed-admin.js admin "Nombre Apellido" "contraseña"
 ```
-(`1001` = código de empleado, que es el usuario para iniciar sesión.)
+(`admin` = usuario para iniciar sesión. Si esa persona también saca viñetas, agrega al final su
+código de empleado para vincularla a su técnico. Los demás administradores se registran desde la
+app: menú *Administración → Administradores*.)
 
 **6. Abrir la aplicación:** http://localhost:8090
 
@@ -216,7 +218,7 @@ npm run start:dev
 Debe terminar con `Nest application successfully started`. Primer administrador (en otra terminal,
 dentro de `backend`):
 ```powershell
-npm run seed:admin -- 1001 "Nombre Apellido" "clave"
+npm run seed:admin -- admin "Nombre Apellido" "clave"
 ```
 
 **3. Frontend** (terminal 2)
@@ -309,7 +311,7 @@ Se necesitan **3 procesos** corriendo a la vez, cada uno en su propia terminal:
   a `.env` en su carpeta (`backend/.env` con las credenciales reales de la base de datos).
   Los `.env` **nunca** se suben al repositorio: ahí van contraseñas y cadenas de conexión.
 - Base de datos desde cero: ejecutar [`database/schema.sql`](database/schema.sql) en MySQL.
-- Primer usuario administrador: `cd backend` → `npm run seed:admin -- <cod_empleado> <nombre> <password>`.
+- Primer usuario administrador: `cd backend` → `npm run seed:admin -- <usuario> "<nombre>" <clave> [cod_empleado]`.
 
 ## Cómo probar
 
@@ -346,6 +348,35 @@ o con un cliente gráfico (MySQL Workbench, DBeaver, extensión de VS Code) a
 cd frontend && npx tsc -p tsconfig.app.json --noEmit
 ```
 
+## Administración, equipos y técnicos
+
+- **Menú**: sin sesión se ve lo que usa la planta (Inicio, Equipos, Viñetas, Otras Viñetas). Al
+  iniciar sesión como administrador aparece la sección **Administración** (Grupos de trabajo,
+  Áreas y sub-áreas, Técnicos, Administradores). Esas pantallas piden sesión: sin ella llevan al login.
+- **Administradores**: tabla aparte (`administradores`, contraseña hasheada). Inician sesión con
+  **usuario + contraseña** (el usuario no distingue mayúsculas). Si también sacan viñetas se
+  vinculan a su técnico (opcional). Desde *Administración → Administradores* un admin registra a
+  otros, cambia contraseñas y desactiva accesos (no se borran; no puedes desactivarte a ti mismo ni
+  al último activo). El primero, o para recuperar el acceso:
+  `docker compose exec backend node dist/scripts/seed-admin.js <usuario> "<nombre>" <clave> [cod_empleado]`
+  (sin Docker: `npm run seed:admin -- ...` dentro de `backend/`).
+- Bases existentes: aplicar `database/migraciones/003-…` y `004-login-por-usuario.sql` (el usuario de
+  los admins que ya existían queda igual a su código de empleado).
+- **Modificar e imprimir**: en *Equipos* (botón *Modificar*) se puede *Guardar e imprimir*; y desde la
+  ventana de una viñeta nueva, *Modificar equipo* abre la corrección del equipo.
+- **TAG**: siempre en MAYÚSCULAS; la descripción con Mayúscula Inicial En Cada Palabra (lo aplica el
+  servidor). En sub-áreas normales el TAG es `LETRAS-AASS` (el sufijo sale de la ubicación); en las
+  marcadas como **TAG especial** (*Áreas y sub-áreas*, solo administradores) se escribe completo.
+- **Cargar técnicos desde la base original** (tabla `Instrumentistas` de SQL Server; requiere
+  `SQLSERVER_URL`, ver [Probar la conexión...](#probar-la-conexión-con-la-base-de-datos-original-sql-server)):
+  ```powershell
+  docker compose exec backend node dist/scripts/importar-tecnicos.js            # simulación
+  docker compose exec backend node dist/scripts/importar-tecnicos.js --aplicar  # escribe
+  ```
+  Solo lee la base original, nunca borra técnicos, no duplica si se corre de nuevo, y por defecto
+  solo muestra lo que haría. Copia nombre, código, identificador (columna `Pass` de v1, no es una
+  contraseña), cargo y activo.
+
 ## Grupos de trabajo y avance del mantenimiento
 
 - **Grupos de trabajo** (menú *Grupos de trabajo*): cada temporada el administrador arma los
@@ -373,7 +404,7 @@ cd frontend && npx tsc -p tsconfig.app.json --noEmit
 - El diseño replica la viñeta que imprimía el sistema anterior (foto de referencia en
   [`media/diseniodevineta.jpeg`](media/diseniodevineta.jpeg)): logo MTI, código de barras
   **Code 39** del TAG, descripción, información, fecha de mantenimiento, técnico y próximo mantenimiento.
-- Código: [`frontend/src/components/EtiquetaVineta.tsx`](frontend/src/components/EtiquetaVineta.tsx)
+- Código: [`frontend/src/modulos/vinetas/impresion/EtiquetaVineta.tsx`](frontend/src/modulos/vinetas/impresion/EtiquetaVineta.tsx)
   (medidas en `ETIQUETA_MM`, dentro de `datosVineta.ts`).
 
 ### Imprimir hoy (impresora por USB, con diálogo)

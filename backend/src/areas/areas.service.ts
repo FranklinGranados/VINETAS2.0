@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { traducirErrorDePrisma } from '../common/prisma-error.util';
 import { CreateAreaDto } from './dto/create-area.dto';
@@ -37,8 +41,26 @@ export class AreasService {
   }
 
   async create(dto: CreateAreaDto) {
+    const { sub_areas = [], ...area } = dto;
+
+    // Dos sub-áreas con el mismo código en la misma petición chocarían con
+    // el UNIQUE (area_id, codigo), pero el error de Prisma no diría cuál:
+    // se revisa antes para responder con el código repetido.
+    const codigos = sub_areas.map((s) => s.codigo);
+    const repetido = codigos.find((c, i) => codigos.indexOf(c) !== i);
+    if (repetido) {
+      throw new BadRequestException(
+        `El código de sub-área "${repetido}" está repetido`,
+      );
+    }
+
     try {
-      return await this.prisma.areas.create({ data: dto });
+      // Creación anidada ("nested write"): Prisma inserta el área y sus
+      // sub-áreas en UNA transacción — si algo falla, no queda nada creado.
+      return await this.prisma.areas.create({
+        data: { ...area, sub_areas: { create: sub_areas } },
+        include: { sub_areas: true },
+      });
     } catch (error) {
       traducirErrorDePrisma(error, {
         duplicado: `Ya existe un área con código "${dto.codigo}"`,

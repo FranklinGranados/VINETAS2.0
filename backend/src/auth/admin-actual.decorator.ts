@@ -13,7 +13,9 @@ import { JwtPayload } from './jwt-payload.interface';
 // devuelve undefined.
 export const AdminActual = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): JwtPayload => {
-    const request = ctx.switchToHttp().getRequest<Request & { admin: JwtPayload }>();
+    const request = ctx
+      .switchToHttp()
+      .getRequest<Request & { admin: JwtPayload }>();
     return request.admin;
   },
 );

@@ -44,8 +44,38 @@ Vite); no se usa `dayjs` directo (fechas con inputs nativos `type=date`/`type=mo
 ## Estructura
 
 ```
-backend/   src/{areas,auth,common,dashboard,equipos,prisma,tecnicos,vinetas}, scripts/, prisma/schema.prisma
-frontend/  src/{api,auth,components,layout,pages,utils,assets}, nginx.conf
+backend/   src/{administradores,areas,auth,common,dashboard,equipos,grupos,prisma,tecnicos,vinetas}, scripts/, prisma/schema.prisma
+frontend/  src/{api,auth,components,layout,modulos,rutas,utils,assets}, nginx.conf
+```
+
+**Frontend por módulos** (2026-10-03, espejo de los módulos del backend): `modulos/<módulo>/` junta la
+página con SUS formularios/componentes (inicio, equipos, vinetas [+ `impresion/`], otras-vinetas,
+grupos, areas, tecnicos, administradores). `components/` y `utils/` = SOLO lo que usan varios módulos
+(ErrorDeCarga, FiltroListado, SelectorPeriodo, PantallaDeCarga, ErrorBoundary; fechas, busqueda,
+avance). `auth/` = sesión + LoginPage; `layout/` = AppLayout + NotFoundPage; `rutas/` = carga diferida
+y precarga; `api/` = una función por endpoint + `types.ts` + `consultas.ts`. Si un componente pasa a
+usarse en otro módulo, se sube a `components/`.
+
+**Técnicos y Áreas desde la app** (2026-10-03):
+- Técnicos: crear/modificar (`TecnicoFormModal`: nombre, código de empleado, identificador, cargo;
+  vaciar un campo = null) e interruptor Activo. Sin eliminar (se desactiva; conserva sus viñetas).
+- Áreas: "Nueva área" con sub-áreas iniciales (`Form.List`) → `POST /areas` con `sub_areas[]` en UNA
+  operación (nested write de Prisma; código repetido en la lista → 400 con el código). "Agregar
+  sub-área" a un área existente (`POST /sub-areas`) y "Modificar" nombre de área/sub-área. El
+  **código NO se cambia desde la UI** (es el sufijo de los TAG ya existentes). Regla de código (back
+  y front): 2 caracteres `[0-9A-Z]`, se pasa a mayúsculas (existe "1A" = Evaporador No. 1A). La UI
+  sugiere el siguiente código numérico (`modulos/areas/codigos.ts`).
+- Login: "Volver sin iniciar sesión" no regresa a una pantalla de solo admin (`EstadoLogin.soloAdmin`
+  que pone RutaAdmin → va al Inicio). Cerrar sesión en una pantalla de Administración → Inicio
+  (`startTransition` con navigate + logout juntos: React Router 7 navega como transición y, si
+  logout iba aparte, RutaAdmin redirigía al login primero).
+
+**Acerca de** (`/acerca-de`, pública, último ítem del menú): ESQUELETO que el usuario diseña y rellena
+él mismo — no rediseñarlo sin que lo pida. Datos en `modulos/acerca-de/datosAcercaDe.ts` (TODO),
+diseño en `AcercaDePage.tsx` + `TarjetaPersona.tsx` (reusada para los dos creadores). Repo público:
+sin teléfonos/correos personales.
+
+```
 database/  schema.sql  (BD MySQL nueva; la carga Docker en el primer arranque) + migraciones/
 media/     foto de la viñeta original + logo
 docker-compose.yml, .env.example (raíz → Docker), backend/.env.example, frontend/.env.example
@@ -64,9 +94,9 @@ Excluidos del repo por `.gitignore`: `viñetas/` (v1), `viñetas.sln`, `packages
 
 - **Docker (pruebas/despliegue)**: ver README "Despliegue con Docker". App en `http://localhost:8090`
   (nginx sirve la SPA y hace proxy `/api/` → backend:3000). MySQL expuesto en 3307. Primer admin:
-  `docker compose exec backend node dist/scripts/seed-admin.js <cod> "<nombre>" <clave>`.
+  `docker compose exec backend node dist/scripts/seed-admin.js <usuario> "<nombre>" <clave> [cod_empleado]`.
 - **Desarrollo**: MySQL local + `cd backend && npm run start:dev` (:3000) + `cd frontend && npm run dev`
-  (:5173, `strictPort`). Admin: `npm run seed:admin -- <cod> "<nombre>" <clave>`.
+  (:5173, `strictPort`). Admin: `npm run seed:admin -- <usuario> "<nombre>" <clave> [cod]`.
 - **Sin Docker** (en la PC de la empresa NO se puede instalar Docker): README "Sin Docker (Windows)".
   Camino A: el diagnóstico SQL Server solo necesita Node (`npx ts-node scripts/probar-sqlserver.ts`,
   no usa MySQL). Camino B: app completa con el MariaDB de XAMPP/Laragon — **probado con MariaDB
@@ -94,14 +124,14 @@ Tablas: `areas`, `sub_areas`, `tecnicos`, `equipos`, `vinetas`. Rediseño de la 
   sobreescribía todas las viñetas al editar el equipo; aquí NO).
 - `nvineta` AUTO_INCREMENT (correlativo global; no se imprime, sirve para reimprimir).
 - Mitre = sub-área **07** de Calderas (01), ya no una columna.
-- `tecnicos.password_hash` (NULL = no puede loguearse), `es_admin`, `cod_empleado` UNIQUE (= usuario
-  de login). `vinetas.tecnico_reviso_id` (FK) = encargado que aprobó el trabajo.
+- `cod_empleado` UNIQUE en técnicos. `vinetas.admin_reviso_id` (FK a administradores) = encargado que
+  aprobó el trabajo (antes `tecnico_reviso_id`, migración 004).
 - Campos futuros documentados como comentario en schema.sql: `cumple`, `tiempo_horas`,
   `desmontaje`, `estado`, `tipo`.
 - Códigos de área = prefijo numérico de los TAG: 01 Calderas, 02 Extracción, 03 Alcalizado/Sacarato,
   05 Evaporadores, 06 Tachos, 07 CV, 08 Centrífugas, 09 Secadora, 10 Clarificación, 11 Filtro Banda,
   12 Laboratorio, 13 Generación Eléctrica, 14 PTAR.
-- `prisma db pull` CONSERVA los nombres de relación puestos a mano (`tecnico_revisor`,
+- `prisma db pull` CONSERVA los nombres de relación puestos a mano (`admin_revisor`,
   `vinetas_revisadas`) pero BORRA los comentarios del schema.prisma: guardar copia antes y restaurarlos.
 
 ## Reglas de negocio implementadas
@@ -123,6 +153,32 @@ Tablas: `areas`, `sub_areas`, `tecnicos`, `equipos`, `vinetas`. Rediseño de la 
   (`EquiposService.aplicarExclusionDeEstados`: hibernacion→en_uso=false, en_uso→hibernacion=false,
   ambos true → 400). La tabla muestra un solo estado.
 - Crear: solo 4 campos (DTO + `forbidNonWhitelisted`); modificar: todos. Vaciar un campo = `null`.
+
+**Administradores, técnicos y equipos (2026-10-02, migración 003)**:
+- `administradores` (usuario UNIQUE, nombre, tecnico_id NULL UNIQUE FK, password_hash, activo). Desde
+  la migración 004 el login es **usuario + clave** (usuario sin distinguir mayúsculas); el vínculo a
+  un técnico es opcional (solo si ese admin también saca viñetas). Módulo `administradores` (todo con
+  AdminAuthGuard): GET/POST/PATCH, sin DELETE (se desactiva); no deja desactivarse a uno mismo ni al
+  último activo; nunca devuelve password_hash. Pantalla `AdministradoresPage` en Administración. `tecnicos` ya NO tiene password_hash/es_admin; ganó `identificador`
+  (= `Instrumentistas.Pass` de v1: NO es contraseña, es el código que los compañeros conocen).
+  Login: mensaje genérico salvo admin desactivado CON clave correcta. JWT `sub` = administradores.id (tokens viejos con sub = tecnico.id: cerrar sesión y volver a entrar).
+- `scripts/importar-tecnicos.ts`: SQL Server `Instrumentistas` → `tecnicos` (une por CodEmp, si no
+  por nombre; normaliza espacios; simulación por defecto, `--aplicar` escribe; idempotente; nunca
+  borra). Probado contra SQL Server de prueba y en Docker.
+- `sub_areas.tag_especial` (reemplaza la lista fija del frontend; Mitre 01/07 y TGM 13/05 en true).
+- Formato en el BACKEND (`common/formato-texto.ts`, EquiposService): TAG → MAYÚSCULAS; descripción →
+  Title Case estilo C# (palabras TODO MAYÚSCULAS se respetan). MySQL compara TAG sin distinguir
+  mayúsculas (collation ci) → "pt-1" y "PT-1" son duplicado.
+- Modificar equipo (`EquipoFormModal`): TAG normal = "letras" + sufijo de la ubicación; especial o
+  formato no estándar → manual. Botón "Guardar e imprimir". `useFlujoVineta.modificarEquipo` (pide el
+  equipo vigente al servidor) y enlace "Modificar equipo" en la ventana de nueva viñeta.
+- Menú: público (Inicio, Equipos, Viñetas, Otras Viñetas) + sección "Administración" solo con sesión
+  (Grupos, Áreas y sub-áreas, Técnicos), rutas envueltas en `auth/RutaAdmin.tsx` (redirige a login).
+
+**Decisión de datos (2026-10-02)**: el sistema arranca el PRÓXIMO AÑO sin historial de viñetas.
+Corte en un día (sin convivencia ni sync). Pendiente de hablar con el jefe: opción recomendada =
+base vieja pasada completa a MySQL como archivo histórico + sistema nuevo con equipos/áreas desde el
+JSON de la base depurada (pedir que incluya el ID del equipo en la base vieja).
 
 **Grupos de trabajo** (2026-09-30, pedido del usuario; inspirado en su "programa de rutinas"):
 - Tablas `grupos_trabajo` (periodo, nombre; UNIQUE periodo+nombre), `grupo_tecnicos`,
@@ -174,7 +230,7 @@ Tablas: `areas`, `sub_areas`, `tecnicos`, `equipos`, `vinetas`. Rediseño de la 
 ## Etiqueta e impresión (Brady M611)
 
 - Cartucho **Brady M6-31-423 = 38.1 × 25.4 mm** (1.5" × 1"), horizontal (`ETIQUETA_MM` en
-  `components/datosVineta.ts`).
+  `modulos/vinetas/impresion/datosVineta.ts`).
 - `EtiquetaVineta.tsx` replica la viñeta de v1 (foto en `media/diseniodevineta.jpeg`) con posiciones
   absolutas en mm: logo MTI (símbolo en negro, `assets/logo-mti-negro.png`, importado `?inline`),
   código de barras **Code 39** del TAG + texto `*TAG*`, descripción e información centradas,
@@ -187,7 +243,9 @@ Tablas: `areas`, `sub_areas`, `tecnicos`, `equipos`, `vinetas`. Rediseño de la 
   `--kiosk-printing` (sin código), **agente de impresión local** (recomendado), Brady Web SDK,
   9100 si se confirma. Ver README "Impresión de viñetas".
 
-## Arquitectura de datos acordada: 2 adaptadores (PENDIENTE de implementar)
+## [DESCARTADO 2026-10-02] Arquitectura de 2 adaptadores
+> Reemplazado por: **una sola base MySQL** (ver "Decisión de datos" arriba). Se conserva esta sección
+> porque el relevamiento de la BD de producción (más abajo) sigue siendo válido para importar datos.
 
 Hoy el despliegue real tiene **SQL Server** (BD `Vinetas`, esquema de v1); más adelante se migrará a
 MySQL. Decisión: la app habla con **interfaces de repositorio** con dos implementaciones elegidas
@@ -244,6 +302,22 @@ App.config + `;Encrypt=false;TrustServerCertificate=true`, **entre comillas simp
 sin ellas Docker Compose interpola `$` y corta la contraseña). Siguiente: correrlo en la PC de la
 empresa (única con acceso al servidor) y con esa salida programar el adaptador.
 
+**Carga y precarga (frontend, 2026-10-03)**:
+- Consultas compartidas en `api/consultas.ts` (`queryOptions`): la pantalla y la precarga usan la
+  MISMA queryKey. `staleTime: 30_000` global (main.tsx) para que lo precargado no se vuelva a pedir.
+- `rutas/precarga.ts`: al pasar el mouse por el menú (`EnlaceMenu` en AppLayout) se adelanta el código
+  de la pantalla y, en Inicio/Equipos/Viñetas, sus datos. En el Inicio, hover sobre una sub-área
+  precarga sus instrumentos. Verificado: 3 hovers = 1 sola petición; al hacer clic, sin spinner.
+- Code splitting: `rutas/pantallas.tsx` (React.lazy) + `rutas/cargaPantallas.ts` (los `import()`, aparte por
+  la recarga en caliente). Inicio y Login NO son diferidas. `Suspense` con `PantallaDeCarga` dentro
+  del layout (el menú sigue visible).
+- `main.tsx` escucha `vite:preloadError` (pestaña abierta con una versión vieja tras un despliegue →
+  falta un chunk): recarga UNA vez por pestaña (bandera en sessionStorage).
+- `frontend/nginx.conf`: **gzip** (la imagen de nginx lo trae apagado; JS de antd 740 → 242 KB,
+  también comprime el JSON del backend) + caché: `/assets/` 1 año `immutable` (nombres con hash) y
+  `try_files $uri =404` (nunca index.html en lugar de un JS); `index.html` con `no-cache`. Probado
+  con `nginx:1.27-alpine` sirviendo `dist/` y `--add-host backend:host-gateway`.
+
 ## Gotchas conocidos (no repetir)
 
 - **Fechas DATE**: llegan como `"2026-09-29T00:00:00.000Z"`; con `new Date()` en Guatemala (UTC−6)
@@ -264,12 +338,16 @@ empresa (única con acceso al servidor) y con esa salida programar el adaptador.
 - Git Bash: `curl -d` con tildes inline corrompe UTF-8 → `--data-binary @archivo.json`; rutas que
   empiezan con `/` se convierten → `MSYS_NO_PATHCONV=1` con `docker exec`.
 - Al probar con servidores propios, no dejar procesos ocupando 3000/5173: chocan con los del usuario.
+- antd 6: `Divider` usa `titlePlacement="start"` (ya no `orientation="left"`); los avisos flotantes
+  son `.ant-message-notice` (para selectores de Playwright).
+- Reescribir archivos con un script (abrir en modo "w") puede hacer que Vite lea el archivo VACÍO a
+  mitad de escritura y lo deje en caché ("does not provide an export named …") → `touch` al archivo.
 
 ## Pendientes (en orden aproximado)
 
 1. Correr el diagnóstico SQL Server en la PC de la empresa → programar el **adaptador SQL Server**
    (repositorios con dos implementaciones).
-2. Formularios de **Técnicos** y **Áreas/Sub-áreas** (solo admin) con el molde de Equipos.
+2. ~~Formularios de Técnicos y Áreas/Sub-áreas~~ (hecho 2026-10-03).
 3. Confirmar formato de TAG de Mitre/TGM y cómo se distinguen equipos iguales en la misma sub-área.
 4. Impresión sin diálogo (según prueba de red de la M611) y prueba física de la etiqueta.
 5. "Otras Viñetas" (Calibrado, No Interviene, Fuera de Uso, Personalizado) — hoy placeholders.

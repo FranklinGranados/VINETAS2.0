@@ -1,3 +1,5 @@
+import type { Area } from '../../api/types';
+
 // Opciones de las listas del formulario "Nuevo equipo", copiadas tal cual
 // de los ComboBox del formulario de v1 (viñetas/nuevoEq.Designer.cs).
 // En v1 esos ComboBox eran editables (se podía elegir de la lista o
@@ -76,20 +78,17 @@ export const INFO_SENALES = aOpciones([
   'Hart',
 ]);
 
-// Ubicaciones cuyos equipos NO siguen el formato de TAG por piezas
-// (variable+función-áreasubárea): tienen TAG con formato propio, así que
-// para ellas el TAG se escribe completo a mano.
-// En v1, Mitre era una casilla aparte; en el esquema nuevo es simplemente
-// la sub-área 07 de Calderas (ver database/schema.sql).
-export const UBICACIONES_TAG_ESPECIAL = [
-  { areaCodigo: '01', subAreaCodigo: '07' }, // Calderas / Caldera Mitre
-  { areaCodigo: '13', subAreaCodigo: '05' }, // Generación Eléctrica / Turbo Generador TGM
-];
-
-export function tieneTagEspecial(areaCodigo?: string, subAreaCodigo?: string): boolean {
-  return UBICACIONES_TAG_ESPECIAL.some(
-    (u) => u.areaCodigo === areaCodigo && u.subAreaCodigo === subAreaCodigo,
-  );
+// ¿Los equipos de esta sub-área llevan TAG de formato propio (escrito
+// completo a mano, sin armar por piezas)? Lo define un administrador en la
+// pantalla Áreas (columna sub_areas.tag_especial); antes estaba escrito acá
+// a mano (Caldera Mitre y Turbo TGM).
+export function tieneTagEspecial(
+  areas: Area[] | undefined,
+  areaCodigo?: string,
+  subAreaCodigo?: string,
+): boolean {
+  const area = areas?.find((a) => a.codigo === areaCodigo);
+  return Boolean(area?.sub_areas?.find((s) => s.codigo === subAreaCodigo)?.tag_especial);
 }
 
 // Mismo resultado que CultureInfo.TextInfo.ToTitleCase de C# (v1 lo

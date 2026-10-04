@@ -43,6 +43,10 @@ CREATE TABLE sub_areas (
   area_id  INT          NOT NULL,
   codigo   CHAR(2)      NOT NULL COMMENT 'Código relativo al área (ej: 01, 02)',
   nombre   VARCHAR(100) NOT NULL,
+  -- Sub-áreas cuyos equipos NO siguen el formato de TAG por piezas
+  -- (variable+función-áreasubárea) y lo llevan escrito completo a mano
+  -- (ej. Caldera Mitre, Turbo Generador TGM). Lo define un administrador.
+  tag_especial TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = el TAG se escribe completo (formato propio)',
 
   PRIMARY KEY (id),
   UNIQUE KEY uq_sub_areas_area_codigo (area_id, codigo),
@@ -64,13 +68,41 @@ CREATE TABLE tecnicos (
   id            INT          NOT NULL AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL,
   cod_empleado  INT          NULL     COMMENT 'Código interno del empleado en el ingenio; también es el usuario de login para administradores',
+  -- Identificador interno del empleado en el taller (columna "Pass" de v1:
+  -- no es una contraseña, es un código que los compañeros conocen).
+  identificador VARCHAR(10)  NULL     COMMENT 'Identificador del empleado en el taller (Instrumentistas.Pass de v1)',
   cargo         VARCHAR(50)  NULL,
   activo        TINYINT(1)   NOT NULL DEFAULT 1,
-  password_hash CHAR(60)     NULL     COMMENT 'Hash bcrypt. NULL = este técnico no puede iniciar sesión',
-  es_admin      TINYINT(1)   NOT NULL DEFAULT 0 COMMENT 'Habilita gestión de técnicos y áreas/sub-áreas',
 
   PRIMARY KEY (id),
   UNIQUE KEY uq_tecnicos_cod_empleado (cod_empleado)
+) ENGINE=InnoDB;
+
+-- =============================================================================
+-- TABLA: administradores
+-- Quienes pueden iniciar sesión para administrar (eliminar equipos, gestionar
+-- técnicos, áreas, grupos y otros administradores, revisar viñetas).
+-- Inician sesión con su USUARIO (ej. "fgranados") y contraseña. El nombre
+-- completo se muestra en pantalla pero no sirve de usuario: tiene espacios,
+-- tildes y puede repetirse entre personas.
+--
+-- tecnico_id OPCIONAL: un administrador que también saca viñetas se vincula a
+-- su registro de técnico; uno que solo administra queda sin vínculo. UNIQUE
+-- permite varios NULL en MySQL, pero un técnico no puede tener dos accesos.
+-- =============================================================================
+CREATE TABLE administradores (
+  id            INT          NOT NULL AUTO_INCREMENT,
+  usuario       VARCHAR(50)  NOT NULL COMMENT 'Usuario del login (no distingue mayúsculas)',
+  nombre        VARCHAR(100) NOT NULL COMMENT 'Nombre completo que se muestra',
+  tecnico_id    INT          NULL     COMMENT 'Técnico vinculado, si también saca viñetas',
+  password_hash CHAR(60)     NOT NULL COMMENT 'Hash bcrypt (nunca la contraseña en texto plano)',
+  activo        TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '0 = acceso suspendido',
+  creado_en     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_administradores_usuario (usuario),
+  UNIQUE KEY uq_administradores_tecnico (tecnico_id),
+  CONSTRAINT fk_administradores_tecnico FOREIGN KEY (tecnico_id) REFERENCES tecnicos (id)
 ) ENGINE=InnoDB;
 
 -- =============================================================================
@@ -161,20 +193,18 @@ CREATE TABLE equipos (
 --   desmontaje TINYINT(1)  — Si el instrumento fue desmontado
 --   estado VARCHAR(20)     — PENDIENTE / EN PROCESO / COMPLETADO
 --
--- tecnico_reviso_id (implementado): cuando un técnico imprime una viñeta,
--- llama a su encargado (un técnico con es_admin=1) a inspeccionar el
--- trabajo en sitio; si lo aprueba, el encargado la marca como revisada
--- desde su propia sesión — acá se guarda SU id, no el del técnico que
--- imprimió (ese ya está en tecnico_id). NULL = todavía nadie la revisó.
--- FK a tecnicos (no un INT suelto con el código de empleado) para poder
--- mostrar el nombre del encargado sin duplicar datos y para que la BD
--- garantice que apunta a un técnico real.
+-- admin_reviso_id: cuando un técnico imprime una viñeta, llama a su
+-- encargado (un administrador) a inspeccionar el trabajo en sitio; si lo
+-- aprueba, el encargado la marca como revisada desde su propia sesión — acá
+-- se guarda SU id, no el del técnico que imprimió (ese ya está en
+-- tecnico_id). NULL = todavía nadie la revisó. FK a administradores: quien
+-- revisa es siempre un administrador, sea o no también técnico.
 -- =============================================================================
 CREATE TABLE vinetas (
   nvineta           INT          NOT NULL AUTO_INCREMENT COMMENT 'Correlativo global secuencial',
   equipo_id         INT          NOT NULL,
   tecnico_id        INT          NULL     COMMENT 'Técnico que realizó la inspección',
-  tecnico_reviso_id INT          NULL     COMMENT 'Encargado (técnico con es_admin=1) que revisó y aprobó el trabajo',
+  admin_reviso_id   INT          NULL     COMMENT 'Encargado (administrador) que revisó y aprobó el trabajo',
   periodo           YEAR         NOT NULL COMMENT 'Año del período de mantenimiento (ej: 2026)',
 
   -- Datos denormalizados: foto del equipo al momento de la inspección
@@ -191,7 +221,7 @@ CREATE TABLE vinetas (
   INDEX idx_vinetas_periodo (periodo),
   CONSTRAINT fk_vinetas_equipo         FOREIGN KEY (equipo_id)         REFERENCES equipos  (id),
   CONSTRAINT fk_vinetas_tecnico        FOREIGN KEY (tecnico_id)        REFERENCES tecnicos (id),
-  CONSTRAINT fk_vinetas_tecnico_reviso FOREIGN KEY (tecnico_reviso_id) REFERENCES tecnicos (id)
+  CONSTRAINT fk_vinetas_admin_reviso   FOREIGN KEY (admin_reviso_id)   REFERENCES administradores (id)
 ) ENGINE=InnoDB;
 
 -- =============================================================================
@@ -370,3 +400,10 @@ INSERT INTO sub_areas (area_id, codigo, nombre) VALUES
   ((SELECT id FROM areas WHERE codigo = '14'), '02', 'Tratamiento Primario'),
   ((SELECT id FROM areas WHERE codigo = '14'), '03', 'Tratamiento Secundario'),
   ((SELECT id FROM areas WHERE codigo = '14'), '05', 'Agua Tratada');
+
+-- Sub-áreas con TAG de formato propio (se escribe completo). Un administrador
+-- puede cambiar esto después desde la pantalla Áreas.
+UPDATE sub_areas s JOIN areas a ON a.id = s.area_id
+SET s.tag_especial = 1
+WHERE (a.codigo = '01' AND s.codigo = '07')   -- Calderas / Caldera Mitre
+   OR (a.codigo = '13' AND s.codigo = '05');  -- Generación Eléctrica / Turbo Generador TGM

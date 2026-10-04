@@ -41,10 +41,7 @@ export class TecnicosController {
 
   @UseGuards(AdminAuthGuard)
   @Patch(':id')
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateTecnicoDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateTecnicoDto) {
     return this.tecnicosService.update(id, dto);
   }
 

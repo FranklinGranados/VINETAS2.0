@@ -4,8 +4,8 @@ import JsBarcode from 'jsbarcode';
 // dentro del JS en vez de servirla como archivo aparte. Así, al copiar la
 // etiqueta al iframe de impresión, el logo ya está ahí — no hay que
 // esperar a que se descargue ni resolver rutas relativas.
-import logoMti from '../assets/logo-mti-negro.png?inline';
-import { formatoDMY, formatoMY } from '../utils/fechas';
+import logoMti from '../../../assets/logo-mti-negro.png?inline';
+import { formatoDMY, formatoMY } from '../../../utils/fechas';
 import { ETIQUETA_MM, type DatosVineta } from './datosVineta';
 
 // Posiciones medidas sobre la foto de una viñeta impresa por v1

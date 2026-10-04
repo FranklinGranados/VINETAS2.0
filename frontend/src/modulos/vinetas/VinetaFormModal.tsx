@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Button, Col, Descriptions, Form, Input, Modal, Row, Select } from 'antd';
-import { mensajeDeError } from '../api/errors';
-import { tecnicosApi } from '../api/tecnicos';
-import { vinetasApi } from '../api/vinetas';
-import type { Equipo, Vineta } from '../api/types';
-import { hoyYMD, proximoDesde, soloFecha } from '../utils/fechas';
+import { Alert, App, Button, Col, Descriptions, Flex, Form, Input, Modal, Row, Select } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
+import { mensajeDeError } from '../../api/errors';
+import { tecnicosApi } from '../../api/tecnicos';
+import { vinetasApi } from '../../api/vinetas';
+import type { Equipo, Vineta } from '../../api/types';
+import { hoyYMD, proximoDesde, soloFecha } from '../../utils/fechas';
 
 // Dos modos en un mismo formulario, porque los campos editables son los
 // mismos (fecha, técnico, próximo, mantenimiento — ver UpdateVinetaDto):
@@ -21,6 +22,9 @@ interface Props {
   onCreada: (vineta: Vineta) => void;
   // Si el equipo ya tenía viñeta en el año: reimprimir esa en vez de crear otra.
   onReimprimir: (vineta: Vineta) => void;
+  // Al ir a imprimir se nota un error en el equipo (TAG, descripción...):
+  // se cierra la viñeta y se abre la modificación del equipo.
+  onModificarEquipo?: (equipo: Equipo) => void;
 }
 
 interface VinetaFormValues {
@@ -30,7 +34,7 @@ interface VinetaFormValues {
   mantenimiento?: string;
 }
 
-export function VinetaFormModal({ open, modo, onClose, onCreada, onReimprimir }: Props) {
+export function VinetaFormModal({ open, modo, onClose, onCreada, onReimprimir, onModificarEquipo }: Props) {
   const [form] = Form.useForm<VinetaFormValues>();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
@@ -109,6 +113,13 @@ export function VinetaFormModal({ open, modo, onClose, onCreada, onReimprimir }:
       onOk={() => form.submit()}
       onCancel={onClose}
     >
+      {creando && onModificarEquipo && (
+        <Flex justify="end">
+          <Button type="link" icon={<EditOutlined />} onClick={() => onModificarEquipo(modo.equipo)}>
+            Modificar equipo
+          </Button>
+        </Flex>
+      )}
       <Descriptions bordered size="small" column={1} style={{ marginBottom: 16 }}>
         <Descriptions.Item label="TAG">{foto.tag}</Descriptions.Item>
         <Descriptions.Item label="Descripción">{foto.descripcion ?? '—'}</Descriptions.Item>

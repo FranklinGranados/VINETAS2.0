@@ -13,38 +13,44 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto): Promise<{ accessToken: string }> {
-    const tecnico = await this.prisma.tecnicos.findUnique({
-      where: { cod_empleado: dto.cod_empleado },
+    // MySQL compara el usuario sin distinguir mayúsculas (collation _ci):
+    // "FGranados" y "fgranados" son el mismo.
+    const admin = await this.prisma.administradores.findUnique({
+      where: { usuario: dto.usuario.trim() },
+      include: { tecnicos: { select: { activo: true } } },
     });
 
-    // Mismo mensaje genérico tanto si el código de empleado no existe como
-    // si la contraseña no coincide (y también si el técnico existe pero
-    // nunca se le configuró password_hash, es decir, no es administrador).
-    // Distinguir esos casos en el mensaje de error le regalaría a un
-    // atacante qué códigos de empleado son válidos.
+    // Mismo mensaje genérico si el usuario no existe o si la contraseña no
+    // coincide: distinguir esos casos le regalaría a un atacante qué
+    // usuarios son válidos.
     const credencialesInvalidas = () =>
-      new UnauthorizedException('Código de empleado o contraseña incorrectos');
+      new UnauthorizedException('Usuario o contraseña incorrectos');
 
-    if (!tecnico || !tecnico.password_hash) {
+    if (!admin) {
       throw credencialesInvalidas();
     }
 
     const passwordCorrecta = await bcrypt.compare(
       dto.password,
-      tecnico.password_hash,
+      admin.password_hash,
     );
     if (!passwordCorrecta) {
       throw credencialesInvalidas();
     }
 
-    if (!tecnico.activo) {
-      throw new UnauthorizedException('Este técnico está desactivado');
+    // Recién con la contraseña correcta se informa el motivo específico
+    // (ya no revela nada a quien no conoce la clave). Si está vinculado a un
+    // técnico desactivado, también queda sin acceso.
+    if (!admin.activo || admin.tecnicos?.activo === false) {
+      throw new UnauthorizedException(
+        'Este acceso de administrador está desactivado',
+      );
     }
 
     const payload: JwtPayload = {
-      sub: tecnico.id,
-      nombre: tecnico.nombre,
-      esAdmin: tecnico.es_admin,
+      sub: admin.id, // id del ADMINISTRADOR (queda como "revisó" en las viñetas)
+      nombre: admin.nombre,
+      esAdmin: true, // solo los administradores pueden iniciar sesión
     };
 
     return { accessToken: await this.jwtService.signAsync(payload) };

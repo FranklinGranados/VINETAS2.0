@@ -1,12 +1,10 @@
 import {
-  IsBoolean,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsPositive,
   IsString,
   MaxLength,
-  MinLength,
 } from 'class-validator';
 
 export class CreateTecnicoDto {
@@ -15,10 +13,8 @@ export class CreateTecnicoDto {
   @MaxLength(100)
   nombre: string;
 
-  // Código interno del empleado en el ingenio. Opcional: no todos los
-  // técnicos tienen uno asignado en el sistema de RR.HH. Pero es
-  // obligatorio si el técnico va a poder iniciar sesión (ver "password"
-  // abajo) — sin código no hay con qué loguearse.
+  // Código interno del empleado en el ingenio (UNIQUE). Opcional: no todos
+  // los técnicos tienen uno asignado en el sistema de RR.HH.
   @IsOptional()
   @IsInt()
   @IsPositive()
@@ -29,20 +25,13 @@ export class CreateTecnicoDto {
   @MaxLength(50)
   cargo?: string;
 
-  // Contraseña en texto plano recibida del cliente — TecnicosService la
-  // hashea con bcrypt antes de guardarla (nunca se persiste tal cual).
-  // Opcional: la mayoría de técnicos de campo nunca inicia sesión, así
-  // que no tienen por qué tener una.
+  // Identificador del empleado en el taller (columna "Pass" de v1; no es
+  // una contraseña). Las contraseñas de administrador van en la tabla
+  // administradores, no acá.
   @IsOptional()
   @IsString()
-  @MinLength(6)
-  password?: string;
-
-  // Solo tiene efecto real si además se manda "password" (sin contraseña
-  // no hay forma de autenticarse, sin importar este valor).
-  @IsOptional()
-  @IsBoolean()
-  es_admin?: boolean;
+  @MaxLength(10)
+  identificador?: string;
 
   // No incluimos "activo" acá: todo técnico nuevo arranca activo por
   // defecto (así lo define la BD). Se desactiva editando, no creando.

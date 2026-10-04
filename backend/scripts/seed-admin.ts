@@ -1,23 +1,26 @@
-// Script de arranque único: crea (o promueve a admin) el primer técnico
-// administrador. Es necesario porque, una vez protegidos los endpoints de
-// escritura de /tecnicos con AdminAuthGuard, no hay forma de crear un admin
-// *desde la API* sin ya tener sesión de admin — alguien tiene que ser el
-// primero, y eso se hace acá, directo contra la base de datos, no vía HTTP.
+// Script de arranque: crea (o resetea) un ADMINISTRADOR directo en la base de
+// datos. Hace falta para el primero: una vez protegidos los endpoints de
+// administración, no hay forma de crear un admin desde la API sin ya tener
+// sesión de admin — alguien tiene que ser el primero, y eso se hace acá. Los
+// siguientes se pueden crear desde la pantalla Administración → Administradores.
 //
 // Uso (desde backend/):
-//   npx ts-node scripts/seed-admin.ts <cod_empleado> <nombre> <password>
+//   npm run seed:admin -- <usuario> "<nombre completo>" <clave> [cod_empleado]
+// Con Docker, desde la raíz:
+//   docker compose exec backend node dist/scripts/seed-admin.js <usuario> "<nombre>" <clave> [cod_empleado]
 //
-// Ejemplo:
-//   npx ts-node scripts/seed-admin.ts 1001 "Duvan Granados" "secreto123"
+// Ejemplos:
+//   npm run seed:admin -- fgranados "Franklin Granados" "MiClave2026"
+//   npm run seed:admin -- fgranados "Franklin Granados" "MiClave2026" 1001
+//     ↑ el 4to argumento (opcional) lo vincula al técnico con ese código de
+//       empleado, si ese administrador también saca viñetas.
 //
-// Si ya existe un técnico con ese cod_empleado, lo actualiza (le pone la
-// contraseña y lo marca es_admin=true) en vez de crear uno duplicado —
-// así el mismo comando sirve para "crear el primer admin" y para
-// "resetear la contraseña de un admin que la olvidó".
+// Si el usuario ya existe, le resetea la contraseña y lo reactiva (el mismo
+// comando sirve para "crear el primero" y para "olvidé la contraseña").
 
 import 'dotenv/config'; // carga backend/.env en process.env — Nest lo hace
 // automáticamente al arrancar la app (ConfigModule), pero este script corre
-// suelto con ts-node, así que hay que cargarlo a mano.
+// suelto, así que hay que cargarlo a mano.
 import { PrismaClient } from '@prisma/client';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import * as bcrypt from 'bcryptjs';
@@ -25,23 +28,23 @@ import * as bcrypt from 'bcryptjs';
 const BCRYPT_SALT_ROUNDS = 10;
 
 async function main() {
-  const [codEmpleadoArg, nombre, password] = process.argv.slice(2);
+  const [usuarioArg, nombre, password, codEmpleadoArg] = process.argv.slice(2);
 
-  if (!codEmpleadoArg || !nombre || !password) {
+  if (!usuarioArg || !nombre || !password) {
     console.error(
-      'Uso: npx ts-node scripts/seed-admin.ts <cod_empleado> <nombre> <password>',
+      'Uso: seed-admin <usuario> "<nombre completo>" <clave> [cod_empleado]',
     );
     process.exit(1);
   }
-
-  const codEmpleado = Number(codEmpleadoArg);
-  if (!Number.isInteger(codEmpleado) || codEmpleado <= 0) {
-    console.error('cod_empleado debe ser un número entero positivo');
+  const usuario = usuarioArg.trim();
+  if (!/^[a-zA-Z0-9._-]{3,50}$/.test(usuario)) {
+    console.error(
+      'El usuario debe tener 3-50 letras, números, punto, guion o guion bajo (sin espacios)',
+    );
     process.exit(1);
   }
-
-  if (password.length < 6) {
-    console.error('La contraseña debe tener al menos 6 caracteres');
+  if (password.length < 8) {
+    console.error('La contraseña debe tener al menos 8 caracteres');
     process.exit(1);
   }
 
@@ -51,16 +54,36 @@ async function main() {
   const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 
   try {
-    const admin = await prisma.tecnicos.upsert({
-      where: { cod_empleado: codEmpleado },
-      update: { nombre, password_hash: passwordHash, es_admin: true, activo: true },
-      create: {
+    // Técnico a vincular (opcional): debe existir.
+    let tecnicoId: number | null = null;
+    if (codEmpleadoArg) {
+      const tecnico = await prisma.tecnicos.findUnique({
+        where: { cod_empleado: Number(codEmpleadoArg) },
+      });
+      if (!tecnico) {
+        console.error(
+          `No existe un técnico con código de empleado ${codEmpleadoArg}`,
+        );
+        process.exit(1);
+      }
+      tecnicoId = tecnico.id;
+    }
+
+    const admin = await prisma.administradores.upsert({
+      where: { usuario },
+      update: {
         nombre,
-        cod_empleado: codEmpleado,
         password_hash: passwordHash,
-        es_admin: true,
+        activo: true,
+        ...(tecnicoId !== null && { tecnico_id: tecnicoId }),
       },
-      select: { id: true, nombre: true, cod_empleado: true, es_admin: true },
+      create: {
+        usuario,
+        nombre,
+        password_hash: passwordHash,
+        tecnico_id: tecnicoId,
+      },
+      select: { id: true, usuario: true, nombre: true, tecnico_id: true },
     });
 
     console.log('Administrador listo:', admin);

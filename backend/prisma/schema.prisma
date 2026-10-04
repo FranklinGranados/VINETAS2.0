@@ -47,6 +47,7 @@ model sub_areas {
   area_id         Int
   codigo          String            @db.Char(2)
   nombre          String            @db.VarChar(100)
+  tag_especial    Boolean           @default(false)
   equipos         equipos[]
   grupo_sub_areas grupo_sub_areas[]
   areas           areas             @relation(fields: [area_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sub_areas_area")
@@ -56,44 +57,41 @@ model sub_areas {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model tecnicos {
-  id                Int              @id @default(autoincrement())
-  nombre            String           @db.VarChar(100)
-  cod_empleado      Int?             @unique(map: "uq_tecnicos_cod_empleado")
-  cargo             String?          @db.VarChar(50)
-  activo            Boolean          @default(true)
-  password_hash     String?          @db.Char(60)
-  es_admin          Boolean          @default(false)
-  grupo_tecnicos    grupo_tecnicos[]
-  vinetas           vinetas[]
-  // Nombre renombrado a mano (introspection genera
-  // "vinetas_vinetas_tecnico_reviso_idTotecnicos" por ser la 2da FK a tecnicos).
-  vinetas_revisadas vinetas[]        @relation("vinetas_tecnico_reviso_idTotecnicos")
+  id              Int              @id @default(autoincrement())
+  nombre          String           @db.VarChar(100)
+  cod_empleado    Int?             @unique(map: "uq_tecnicos_cod_empleado")
+  identificador   String?          @db.VarChar(10)
+  cargo           String?          @db.VarChar(50)
+  activo          Boolean          @default(true)
+  administradores administradores?
+  grupo_tecnicos  grupo_tecnicos[]
+  vinetas         vinetas[]
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model vinetas {
-  nvineta           Int       @id @default(autoincrement())
-  equipo_id         Int
-  tecnico_id        Int?
-  tecnico_reviso_id Int?
-  periodo           Int       @db.Year
-  tag               String?   @db.VarChar(30)
-  descripcion       String?   @db.VarChar(200)
-  informacion       String?   @db.VarChar(100)
-  fecha             DateTime  @db.Date
-  proximo           DateTime? @db.Date
-  mantenimiento     String?   @db.Text
-  equipos           equipos   @relation(fields: [equipo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vinetas_equipo")
-  tecnicos          tecnicos? @relation(fields: [tecnico_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vinetas_tecnico")
-  // Nombre renombrado a mano (introspection genera
-  // "tecnicos_vinetas_tecnico_reviso_idTotecnicos" por ser la 2da FK a tecnicos).
-  // `prisma db pull` conserva este nombre, pero borra estos comentarios.
-  tecnico_revisor   tecnicos? @relation("vinetas_tecnico_reviso_idTotecnicos", fields: [tecnico_reviso_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vinetas_tecnico_reviso")
+  nvineta         Int              @id @default(autoincrement())
+  equipo_id       Int
+  tecnico_id      Int?
+  admin_reviso_id Int?
+  periodo         Int              @db.Year
+  tag             String?          @db.VarChar(30)
+  descripcion     String?          @db.VarChar(200)
+  informacion     String?          @db.VarChar(100)
+  fecha           DateTime         @db.Date
+  proximo         DateTime?        @db.Date
+  mantenimiento   String?          @db.Text
+  // Nombre renombrado a mano (introspection lo llama "administradores"):
+  // el administrador que revisó esta viñeta. `prisma db pull` conserva el
+  // nombre pero borra este comentario.
+  admin_revisor   administradores? @relation(fields: [admin_reviso_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vinetas_admin_reviso")
+  equipos         equipos          @relation(fields: [equipo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vinetas_equipo")
+  tecnicos        tecnicos?        @relation(fields: [tecnico_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vinetas_tecnico")
 
   @@index([equipo_id], map: "fk_vinetas_equipo")
   @@index([tecnico_id], map: "fk_vinetas_tecnico")
   @@index([periodo], map: "idx_vinetas_periodo")
-  @@index([tecnico_reviso_id], map: "fk_vinetas_tecnico_reviso")
+  @@index([admin_reviso_id], map: "fk_vinetas_admin_reviso")
 }
 
 model grupo_sub_areas {
@@ -130,4 +128,19 @@ model grupos_trabajo {
 
   @@unique([id, periodo], map: "uq_grupos_id_periodo")
   @@unique([periodo, nombre], map: "uq_grupos_periodo_nombre")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model administradores {
+  id            Int       @id @default(autoincrement())
+  usuario       String    @unique(map: "uq_administradores_usuario") @db.VarChar(50)
+  nombre        String    @db.VarChar(100)
+  tecnico_id    Int?      @unique(map: "uq_administradores_tecnico")
+  password_hash String    @db.Char(60)
+  activo        Boolean   @default(true)
+  creado_en     DateTime  @default(now()) @db.DateTime(0)
+  tecnicos      tecnicos? @relation(fields: [tecnico_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_administradores_tecnico")
+  // Nombre renombrado a mano (introspection lo llama "vinetas"): las viñetas
+  // que este administrador marcó como revisadas.
+  vinetas_revisadas vinetas[]
 }

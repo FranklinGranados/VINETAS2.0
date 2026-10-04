@@ -10,6 +10,7 @@ import { VinetasModule } from './vinetas/vinetas.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AuthModule } from './auth/auth.module';
 import { GruposModule } from './grupos/grupos.module';
+import { AdministradoresModule } from './administradores/administradores.module';
 import { RegistroPeticionesMiddleware } from './common/registro-peticiones.middleware';
 
 @Module({
@@ -26,6 +27,7 @@ import { RegistroPeticionesMiddleware } from './common/registro-peticiones.middl
     DashboardModule,
     AuthModule,
     GruposModule,
+    AdministradoresModule,
   ],
   controllers: [AppController],
   providers: [AppService],

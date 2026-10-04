@@ -17,6 +17,9 @@ export interface SubArea {
   area_id: number;
   codigo: string;
   nombre: string;
+  // true = sus equipos llevan TAG de formato propio, escrito completo a mano
+  // (ej. Caldera Mitre). Lo define un administrador en la pantalla Áreas.
+  tag_especial: boolean;
   areas?: Area;
 }
 
@@ -50,19 +53,18 @@ export interface Tecnico {
   id: number;
   nombre: string;
   cod_empleado: number | null;
+  // Identificador del empleado en el taller (columna "Pass" de v1).
+  identificador: string | null;
   cargo: string | null;
   activo: boolean;
-  // El backend nunca incluye password_hash en ninguna respuesta (ver
-  // TECNICO_SELECT_PUBLICO) — por eso no aparece acá tampoco.
-  es_admin: boolean;
 }
 
 export interface Vineta {
   nvineta: number;
   equipo_id: number;
   tecnico_id: number | null;
-  // NULL = todavía nadie (ningún encargado) revisó el trabajo en sitio.
-  tecnico_reviso_id: number | null;
+  // Administrador que revisó el trabajo en sitio; NULL = todavía nadie.
+  admin_reviso_id: number | null;
   periodo: number;
   tag: string | null;
   descripcion: string | null;
@@ -75,7 +77,7 @@ export interface Vineta {
   mantenimiento: string | null;
   equipos?: Equipo;
   tecnicos?: Tecnico;
-  tecnico_revisor?: Tecnico | null;
+  admin_revisor?: { id: number; nombre: string } | null;
 }
 
 // ── Payloads de escritura (lo que el frontend ENVÍA) ──
@@ -111,12 +113,32 @@ export type UpdateEquipoPayload = Partial<CreateEquipoPayload> & {
 export interface CreateTecnicoPayload {
   nombre: string;
   cod_empleado?: number;
+  identificador?: string;
   cargo?: string;
 }
 
-export type UpdateTecnicoPayload = Partial<CreateTecnicoPayload> & {
+// En PATCH, null = vaciar el campo (ej. quitar el cargo).
+export type UpdateTecnicoPayload = {
+  nombre?: string;
+  cod_empleado?: number | null;
+  identificador?: string | null;
+  cargo?: string | null;
   activo?: boolean;
 };
+
+// POST /areas: el área y, opcionalmente, sus sub-áreas en una sola operación.
+export interface CreateAreaPayload {
+  codigo: string;
+  nombre: string;
+  sub_areas?: { codigo: string; nombre: string }[];
+}
+
+// POST /sub-areas: agregar una sub-área a un área existente.
+export interface CreateSubAreaPayload {
+  area_id: number;
+  codigo: string;
+  nombre: string;
+}
 
 export interface CreateVinetaPayload {
   equipo_id: number;
@@ -224,10 +246,36 @@ export interface InstrumentosSubArea {
 
 // POST /auth/login
 export interface LoginPayload {
-  cod_empleado: number;
+  usuario: string;
   password: string;
 }
 
 export interface LoginResponse {
   accessToken: string;
 }
+
+// ── Administradores (GET/POST/PATCH /administradores, solo con sesión) ──
+// Tabla aparte de técnicos: login por usuario + contraseña. Algunos
+// también sacan viñetas, por eso el vínculo opcional a su técnico.
+export interface Administrador {
+  id: number;
+  usuario: string;
+  nombre: string;
+  activo: boolean;
+  creado_en: string;
+  tecnico_id: number | null;
+  tecnicos: Tecnico | null;
+}
+
+export interface CreateAdministradorPayload {
+  usuario: string;
+  nombre: string;
+  password: string;
+  tecnico_id?: number;
+}
+
+// Omitir = no tocar; tecnico_id null = quitar el vínculo; password = nueva clave.
+export type UpdateAdministradorPayload = Partial<Omit<CreateAdministradorPayload, 'tecnico_id'>> & {
+  activo?: boolean;
+  tecnico_id?: number | null;
+};

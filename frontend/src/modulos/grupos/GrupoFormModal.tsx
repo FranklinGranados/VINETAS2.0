@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Form, Input, Modal, Select, TreeSelect } from 'antd';
-import { areasApi } from '../api/areas';
-import { gruposApi } from '../api/grupos';
-import { mensajeDeError } from '../api/errors';
-import { tecnicosApi } from '../api/tecnicos';
-import type { GrupoTrabajo } from '../api/types';
+import { areasApi } from '../../api/areas';
+import { gruposApi } from '../../api/grupos';
+import { mensajeDeError } from '../../api/errors';
+import { tecnicosApi } from '../../api/tecnicos';
+import type { GrupoTrabajo } from '../../api/types';
 
 interface Props {
   open: boolean;

@@ -1,4 +1,4 @@
-import type { Vineta } from '../api/types';
+import type { Vineta } from '../../../api/types';
 
 // Cartucho Brady M6-31-423: 1.5" × 1" (38.1 × 25.4 mm), poliéster blanco.
 // Se imprime en horizontal (ancho > alto).

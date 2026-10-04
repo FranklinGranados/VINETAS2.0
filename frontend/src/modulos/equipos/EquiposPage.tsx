@@ -3,17 +3,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Button, Flex, Popconfirm, Space, Table, Tag, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, PrinterOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { equiposApi } from '../api/equipos';
-import { mensajeDeError } from '../api/errors';
-import type { Equipo } from '../api/types';
-import { EquipoFormModal } from '../components/EquipoFormModal';
-import { NuevoEquipoModal } from '../components/NuevoEquipoModal';
-import { useAuth } from '../auth/AuthContext';
-import { useExigirAdmin } from '../auth/useExigirAdmin';
-import { ErrorDeCarga } from '../components/ErrorDeCarga';
-import { FiltroListado } from '../components/FiltroListado';
-import { useFlujoVineta } from '../components/useFlujoVineta';
-import { coincide } from '../utils/busqueda';
+import { consultaEquipos } from '../../api/consultas';
+import { equiposApi } from '../../api/equipos';
+import { mensajeDeError } from '../../api/errors';
+import type { Equipo } from '../../api/types';
+import { NuevoEquipoModal } from './NuevoEquipoModal';
+import { useAuth } from '../../auth/AuthContext';
+import { useExigirAdmin } from '../../auth/useExigirAdmin';
+import { ErrorDeCarga } from '../../components/ErrorDeCarga';
+import { FiltroListado } from '../../components/FiltroListado';
+import { useFlujoVineta } from '../vinetas/useFlujoVineta';
+import { coincide } from '../../utils/busqueda';
 
 const { Title } = Typography;
 
@@ -67,28 +67,16 @@ const columnasDeDatos: ColumnsType<Equipo> = [
   },
 ];
 
-// Estado del modal. `equipo` decide CUÁL se muestra: null → NuevoEquipoModal
-// (crear), un Equipo → EquipoFormModal (modificar). Al cerrar solo se pone
-// abierto=false y se CONSERVA el equipo, para que el mismo modal siga
-// montado mientras hace la animación de salida.
-interface EstadoModal {
-  abierto: boolean;
-  equipo: Equipo | null;
-}
-
 export function EquiposPage() {
-  const [modal, setModal] = useState<EstadoModal>({ abierto: false, equipo: null });
-  // Contador de aperturas, usado como `key` del modal: cada vez que se abre
-  // cambia el key y React crea un modal NUEVO, con su propio
-  // Form.useForm() vacío. Sin esto, la instancia del form sobrevive entre
-  // aperturas y "Nuevo equipo" aparecía con los datos del último equipo
-  // editado. Al cerrar el key no cambia, así se conserva la animación.
+  // "Nuevo equipo": `aperturas` como key para que cada apertura arranque
+  // con un formulario limpio (Form.useForm sobrevive entre aperturas si el
+  // componente no se vuelve a montar). Modificar va por useFlujoVineta.
+  const [nuevoAbierto, setNuevoAbierto] = useState(false);
   const [aperturas, setAperturas] = useState(0);
-  const abrirModal = (equipo: Equipo | null) => {
+  const abrirNuevo = () => {
     setAperturas((n) => n + 1);
-    setModal({ abierto: true, equipo });
+    setNuevoAbierto(true);
   };
-  const cerrarModal = () => setModal((actual) => ({ ...actual, abierto: false }));
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const { admin } = useAuth();
@@ -97,7 +85,7 @@ export function EquiposPage() {
   // candado — y al tocarlo lleva al login en vez de fallar con un 401.
   // Crear y modificar son abiertos, como en v1.
   const exigirAdmin = useExigirAdmin();
-  // Nueva viñeta → vista previa → imprimir (ver components/useFlujoVineta).
+  // Nueva viñeta → vista previa → imprimir (ver modulos/vinetas/useFlujoVineta).
   const flujoVineta = useFlujoVineta();
 
   // Filtros del listado: se aplican en el navegador sobre los datos ya
@@ -108,10 +96,10 @@ export function EquiposPage() {
   // useQuery maneja solo: loading mientras pide, error si falla, y cachea
   // el resultado bajo la key ['equipos'] — si otra pantalla vuelve a pedir
   // useQuery(['equipos']), reusa el cache en vez de repetir el fetch.
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['equipos'],
-    queryFn: equiposApi.getAll,
-  });
+  //
+  // consultaEquipos(): la misma consulta que precarga el menú al pasar el
+  // mouse por "Equipos" (ver api/consultas.ts).
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery(consultaEquipos());
 
   const eliminar = useMutation({
     mutationFn: (equipo: Equipo) => equiposApi.remove(equipo.id),
@@ -129,7 +117,7 @@ export function EquiposPage() {
   });
 
   // La columna de acciones se arma DENTRO del componente (a diferencia de
-  // columnasDeDatos, que es constante) porque necesita abrirModal y la
+  // columnasDeDatos, que es constante) porque necesita flujoVineta y la
   // mutation eliminar, que solo existen acá adentro.
   const columns: ColumnsType<Equipo> = [
     {
@@ -162,7 +150,8 @@ export function EquiposPage() {
           <Button
             size="small"
             icon={<EditOutlined />}
-            onClick={() => abrirModal(equipo)}
+            // Modificar con "Guardar e imprimir" (ver useFlujoVineta).
+            onClick={() => flujoVineta.modificarEquipo(equipo)}
           >
             Modificar
           </Button>
@@ -229,7 +218,7 @@ export function EquiposPage() {
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={() => abrirModal(null)}
+          onClick={abrirNuevo}
         >
           Nuevo equipo
         </Button>
@@ -249,16 +238,7 @@ export function EquiposPage() {
         pagination={{ showTotal: (total) => `${total} equipos` }}
         scroll={{ x: 'max-content' }}
       />
-      {modal.equipo ? (
-        <EquipoFormModal
-          key={aperturas}
-          open={modal.abierto}
-          equipo={modal.equipo}
-          onClose={cerrarModal}
-        />
-      ) : (
-        <NuevoEquipoModal key={aperturas} open={modal.abierto} onClose={cerrarModal} />
-      )}
+      <NuevoEquipoModal key={aperturas} open={nuevoAbierto} onClose={() => setNuevoAbierto(false)} />
       {flujoVineta.modales}
     </>
   );

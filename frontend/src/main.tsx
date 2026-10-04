@@ -10,6 +10,19 @@ import App from './App.tsx';
 import { esErrorReintentable } from './api/errors';
 import { AuthProvider } from './auth/AuthContext';
 
+// Pantallas diferidas (rutas/pantallas.tsx) + versión nueva desplegada:
+// una pestaña que quedó abierta con la versión anterior pide archivos de
+// /assets/ que ya no existen (404) al entrar a otra pantalla. Vite avisa
+// con este evento; se recarga para traer la versión nueva. Solo UNA vez
+// por pestaña (sessionStorage): si el archivo falta por otro motivo, se
+// muestra el error normal en vez de recargar sin fin.
+window.addEventListener('vite:preloadError', (evento) => {
+  if (sessionStorage.getItem('recargadoPorVersionNueva')) return;
+  sessionStorage.setItem('recargadoPorVersionNueva', '1');
+  evento.preventDefault(); // ya se resuelve recargando: no relanzar el error
+  window.location.reload();
+});
+
 // Una sola instancia de QueryClient para toda la app: guarda en memoria
 // el cache de todas las consultas (equipos, tecnicos, vinetas...). Cada
 // pantalla usa useQuery/useMutation contra este mismo cache compartido.
@@ -26,6 +39,12 @@ const queryClient = new QueryClient({
       // del navegador y vuelve — en este sistema los datos no cambian tan
       // seguido, y generaba parpadeos de "Actualizando…" innecesarios.
       refetchOnWindowFocus: false,
+      // Datos "frescos" durante 30 s: en ese lapso, volver a una pantalla
+      // o precargarla al pasar el mouse (rutas/precarga.ts) usa el caché
+      // sin repetir la petición. Sin esto (0 por defecto), lo precargado
+      // se volvía a pedir apenas se abría la pantalla. Guardar algo no
+      // espera los 30 s: las mutations invalidan sus consultas al momento.
+      staleTime: 30_000,
     },
   },
 });

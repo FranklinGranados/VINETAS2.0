@@ -39,7 +39,9 @@ export class AdminAuthGuard implements CanActivate {
     // Fuera del try/catch a propósito: si esto lanzara dentro, el catch de
     // arriba lo taparía con el mensaje genérico de "sesión inválida".
     if (!payload.esAdmin) {
-      throw new UnauthorizedException('Esta acción requiere permisos de administrador');
+      throw new UnauthorizedException(
+        'Esta acción requiere permisos de administrador',
+      );
     }
 
     // Queda disponible como request.admin en el controller/service si en

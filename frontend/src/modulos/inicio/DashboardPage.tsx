@@ -1,17 +1,17 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, Card, Col, Empty, Flex, Progress, Row, Space, Statistic, Tag, Tooltip, Typography } from 'antd';
 import { DownOutlined, RiseOutlined, TeamOutlined, UpOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { dashboardApi } from '../api/dashboard';
-import type { Avance, AvanceArea } from '../api/types';
-import { ErrorDeCarga } from '../components/ErrorDeCarga';
-import { ImagenArea } from '../components/ImagenArea';
-import { InstrumentosSubAreaDrawer } from '../components/InstrumentosSubAreaDrawer';
-import { SelectorPeriodo } from '../components/SelectorPeriodo';
-import { useFlujoVineta } from '../components/useFlujoVineta';
-import { colorAvance, porAvance } from '../utils/avance';
-import { formatoDMY } from '../utils/fechas';
+import { consultaAvance, consultaInstrumentosSubArea } from '../../api/consultas';
+import type { Avance, AvanceArea } from '../../api/types';
+import { ErrorDeCarga } from '../../components/ErrorDeCarga';
+import { ImagenArea } from './ImagenArea';
+import { InstrumentosSubAreaDrawer } from './InstrumentosSubAreaDrawer';
+import { SelectorPeriodo } from '../../components/SelectorPeriodo';
+import { useFlujoVineta } from '../vinetas/useFlujoVineta';
+import { colorAvance, porAvance } from '../../utils/avance';
+import { formatoDMY } from '../../utils/fechas';
 
 const { Title, Text } = Typography;
 
@@ -46,7 +46,15 @@ function TextoAvance({ avance }: { avance: Avance }) {
 }
 
 // Tarjeta de un área: dibujo, avance y (desplegable) sus sub-áreas.
-function TarjetaArea({ area, onVerSubArea }: { area: AvanceArea; onVerSubArea: (id: number) => void }) {
+function TarjetaArea({
+  area,
+  onVerSubArea,
+  onPrecargarSubArea,
+}: {
+  area: AvanceArea;
+  onVerSubArea: (id: number) => void;
+  onPrecargarSubArea: (id: number) => void;
+}) {
   const [abierta, setAbierta] = useState(false);
 
   return (
@@ -84,6 +92,8 @@ function TarjetaArea({ area, onVerSubArea }: { area: AvanceArea; onVerSubArea: (
               role="button"
               tabIndex={0}
               onClick={() => onVerSubArea(sub.id)}
+              onMouseEnter={() => onPrecargarSubArea(sub.id)}
+              onFocus={() => onPrecargarSubArea(sub.id)}
               onKeyDown={(e) => e.key === 'Enter' && onVerSubArea(sub.id)}
               style={{ padding: '6px 8px', borderRadius: 6, cursor: 'pointer', background: '#fafafa', marginBottom: 6 }}
             >
@@ -115,10 +125,15 @@ export function DashboardPage() {
   // Imprimir desde el panel de una sub-área = mismo flujo que en Equipos.
   const flujoVineta = useFlujoVineta();
 
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['dashboard', 'avance', periodo],
-    queryFn: () => dashboardApi.avance(periodo),
-  });
+  const queryClient = useQueryClient();
+
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery(consultaAvance(periodo));
+
+  // Al pasar el mouse por una sub-área se piden sus instrumentos: cuando se
+  // hace clic, el panel abre ya lleno. Con staleTime (main.tsx), pasar el
+  // mouse varias veces no repite la petición.
+  const precargarSubArea = (id: number) =>
+    void queryClient.prefetchQuery(consultaInstrumentosSubArea(id, periodo));
 
   if (isError) {
     return (
@@ -231,7 +246,7 @@ export function DashboardPage() {
       <Row gutter={[16, 16]}>
         {[...(data?.areas ?? [])].sort(porAvance).map((area) => (
           <Col xs={24} md={12} xl={8} key={area.id}>
-            <TarjetaArea area={area} onVerSubArea={setSubAreaId} />
+            <TarjetaArea area={area} onVerSubArea={setSubAreaId} onPrecargarSubArea={precargarSubArea} />
           </Col>
         ))}
       </Row>

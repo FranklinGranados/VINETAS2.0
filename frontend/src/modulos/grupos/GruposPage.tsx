@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Button, Card, Col, Empty, Flex, Popconfirm, Row, Space, Tag, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
-import { areasApi } from '../api/areas';
-import { gruposApi } from '../api/grupos';
-import { mensajeDeError } from '../api/errors';
-import type { Area, GrupoTrabajo } from '../api/types';
-import { useAuth } from '../auth/AuthContext';
-import { useExigirAdmin } from '../auth/useExigirAdmin';
-import { ErrorDeCarga } from '../components/ErrorDeCarga';
-import { GrupoFormModal } from '../components/GrupoFormModal';
-import { SelectorPeriodo } from '../components/SelectorPeriodo';
+import { areasApi } from '../../api/areas';
+import { gruposApi } from '../../api/grupos';
+import { mensajeDeError } from '../../api/errors';
+import type { Area, GrupoTrabajo } from '../../api/types';
+import { useAuth } from '../../auth/AuthContext';
+import { useExigirAdmin } from '../../auth/useExigirAdmin';
+import { ErrorDeCarga } from '../../components/ErrorDeCarga';
+import { GrupoFormModal } from './GrupoFormModal';
+import { SelectorPeriodo } from '../../components/SelectorPeriodo';
 
 const { Title, Text } = Typography;
 

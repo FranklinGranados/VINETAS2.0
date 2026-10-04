@@ -1,14 +1,20 @@
 import { Route, Routes } from 'react-router-dom';
 import { AppLayout } from './layout/AppLayout';
-import { DashboardPage } from './pages/DashboardPage';
-import { EquiposPage } from './pages/EquiposPage';
-import { TecnicosPage } from './pages/TecnicosPage';
-import { VinetasPage } from './pages/VinetasPage';
-import { AreasPage } from './pages/AreasPage';
-import { ComingSoonPage } from './pages/ComingSoonPage';
-import { LoginPage } from './pages/LoginPage';
-import { NotFoundPage } from './pages/NotFoundPage';
-import { GruposPage } from './pages/GruposPage';
+import { DashboardPage } from './modulos/inicio/DashboardPage';
+import { ComingSoonPage } from './modulos/otras-vinetas/ComingSoonPage';
+import { LoginPage } from './auth/LoginPage';
+import { NotFoundPage } from './layout/NotFoundPage';
+import { RutaAdmin } from './auth/RutaAdmin';
+// Pantallas de carga diferida (se descargan al entrar, ver rutas/pantallas.tsx).
+import {
+  AcercaDePage,
+  AdministradoresPage,
+  AreasPage,
+  EquiposPage,
+  GruposPage,
+  TecnicosPage,
+  VinetasPage,
+} from './rutas/pantallas';
 
 function App() {
   return (
@@ -22,10 +28,17 @@ function App() {
       <Route element={<AppLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="/equipos" element={<EquiposPage />} />
-        <Route path="/tecnicos" element={<TecnicosPage />} />
         <Route path="/vinetas" element={<VinetasPage />} />
-        <Route path="/areas" element={<AreasPage />} />
-        <Route path="/grupos" element={<GruposPage />} />
+        <Route path="/acerca-de" element={<AcercaDePage />} />
+
+        {/* Sección Administración: sin sesión de admin, RutaAdmin manda al
+            login (y vuelve acá al iniciar sesión). */}
+        <Route element={<RutaAdmin />}>
+          <Route path="/grupos" element={<GruposPage />} />
+          <Route path="/areas" element={<AreasPage />} />
+          <Route path="/tecnicos" element={<TecnicosPage />} />
+          <Route path="/administradores" element={<AdministradoresPage />} />
+        </Route>
 
         {/* "Otras Viñetas": etiquetas de impresión directa (sin formulario
             de captura ni registro nuevo en BD) — pendientes de la Brady M611. */}

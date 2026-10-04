@@ -1,20 +1,21 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Alert, Button, Card, Form, Input, InputNumber, Typography } from 'antd';
-import { useAuth } from '../auth/AuthContext';
-import type { EstadoLogin } from '../auth/useExigirAdmin';
+import { Alert, Button, Card, Form, Input, Typography } from 'antd';
+import { mensajeDeError } from '../api/errors';
+import { useAuth } from './AuthContext';
+import type { EstadoLogin } from './useExigirAdmin';
 
 const { Title, Text } = Typography;
 
 interface FormValues {
-  cod_empleado: number;
+  usuario: string;
   password: string;
 }
 
 // Pantalla de login para administradores — no existía en v1 (nadie
-// iniciaba sesión ahí). Solo la necesita el pequeño grupo de técnicos que
-// además administra el sistema (ver auth/AuthContext.tsx); el resto de la
-// planta sigue usando la app sin loguearse, igual que antes.
+// iniciaba sesión ahí). Solo la necesitan los administradores (tabla
+// administradores: usuario + contraseña, ver auth/AuthContext.tsx); el
+// resto de la planta sigue usando la app sin loguearse, igual que antes.
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -22,7 +23,11 @@ export function LoginPage() {
   // estado de la navegación trae la pantalla de origen: al iniciar sesión
   // se vuelve ahí, en vez de mandar siempre al inicio.
   const location = useLocation();
-  const desde = (location.state as EstadoLogin | null)?.desde ?? '/';
+  const estado = location.state as EstadoLogin | null;
+  const desde = estado?.desde ?? '/';
+  // Salir sin sesión: a la pantalla de origen solo si es pública (si era de
+  // administración, volver ahí rebotaría al login en un ciclo sin fin).
+  const destinoSinSesion = estado?.soloAdmin ? '/' : desde;
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -30,15 +35,16 @@ export function LoginPage() {
     setError(null);
     setEnviando(true);
     try {
-      await login(values.cod_empleado, values.password);
+      await login(values.usuario.trim(), values.password);
       // replace: el login no queda en el historial — el botón "atrás" del
       // navegador no vuelve a mostrar el formulario ya usado.
       navigate(desde, { replace: true });
-    } catch {
-      // El backend responde el mismo mensaje genérico tanto si el código
-      // de empleado no existe como si la contraseña no coincide — acá
-      // hacemos lo mismo, no distinguimos el motivo.
-      setError('Código de empleado o contraseña incorrectos');
+    } catch (e) {
+      // El backend responde el mismo mensaje genérico tanto si el usuario
+      // no existe como si la contraseña no coincide (así no revela qué
+      // usuarios existen). Un acceso desactivado sí trae su propio
+      // mensaje: se muestra tal cual.
+      setError(mensajeDeError(e));
     } finally {
       setEnviando(false);
     }
@@ -62,7 +68,7 @@ export function LoginPage() {
           type="secondary"
           style={{ display: 'block', textAlign: 'center', marginBottom: 24 }}
         >
-          Para eliminar equipos y gestionar técnicos y áreas
+          Para eliminar equipos y gestionar grupos, áreas, técnicos y administradores
         </Text>
 
         {error && (
@@ -76,11 +82,12 @@ export function LoginPage() {
 
         <Form<FormValues> layout="vertical" onFinish={onFinish}>
           <Form.Item
-            label="Código de empleado"
-            name="cod_empleado"
-            rules={[{ required: true, message: 'Ingresa tu código de empleado' }]}
+            label="Usuario"
+            name="usuario"
+            rules={[{ required: true, message: 'Ingresa tu usuario' }]}
           >
-            <InputNumber style={{ width: '100%' }} autoFocus />
+            {/* autoComplete: el navegador puede recordar usuario y clave. */}
+            <Input autoFocus autoComplete="username" />
           </Form.Item>
 
           <Form.Item
@@ -88,7 +95,7 @@ export function LoginPage() {
             name="password"
             rules={[{ required: true, message: 'Ingresa tu contraseña' }]}
           >
-            <Input.Password />
+            <Input.Password autoComplete="current-password" />
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0 }}>
@@ -98,7 +105,7 @@ export function LoginPage() {
           </Form.Item>
           {/* La mayoría de la planta no necesita sesión: salida explícita
               para volver sin quedar "atrapado" en esta pantalla. */}
-          <Button type="link" block onClick={() => navigate(desde)}>
+          <Button type="link" block onClick={() => navigate(destinoSinSesion, { replace: true })}>
             Volver sin iniciar sesión
           </Button>
         </Form>

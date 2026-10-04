@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { traducirErrorDePrisma } from '../common/prisma-error.util';
@@ -11,9 +15,9 @@ import { TECNICO_SELECT_PUBLICO } from '../tecnicos/tecnico-public-fields';
 // revisó (si ya la revisó alguien) relacionados, para que el frontend no
 // tenga que pedirlos aparte.
 //
-// tecnicos/tecnico_revisor usan "select" (no "true" a secas) para excluir
-// password_hash — "include: { tecnicos: true }" trae la fila completa tal
-// cual, hash incluido, y eso se filtraba sin querer en el JSON de /vinetas.
+// tecnicos y admin_revisor usan "select" (no "true" a secas): la respuesta
+// lleva solo lo que se muestra — en el caso del administrador, NUNCA su
+// password_hash (un "include: { admin_revisor: true }" lo filtraría tal cual).
 //
 // equipos incluye su sub-área y área: el listado de viñetas se filtra y
 // agrupa por área, y sin esto el frontend tendría que cruzar a mano con
@@ -21,7 +25,7 @@ import { TECNICO_SELECT_PUBLICO } from '../tecnicos/tecnico-public-fields';
 const INCLUDE_RELACIONES = {
   equipos: { include: { sub_areas: { include: { areas: true } } } },
   tecnicos: { select: TECNICO_SELECT_PUBLICO },
-  tecnico_revisor: { select: TECNICO_SELECT_PUBLICO },
+  admin_revisor: { select: { id: true, nombre: true } },
 } satisfies Prisma.vinetasInclude;
 
 @Injectable()
@@ -49,7 +53,9 @@ export class VinetasService {
     });
 
     if (!vineta) {
-      throw new NotFoundException(`No existe una viñeta con nvineta ${nvineta}`);
+      throw new NotFoundException(
+        `No existe una viñeta con nvineta ${nvineta}`,
+      );
     }
 
     return vineta;
@@ -133,16 +139,16 @@ export class VinetasService {
     return this.prisma.vinetas.delete({ where: { nvineta } });
   }
 
-  // Marca la viñeta como revisada por el encargado (admin) que hizo el
-  // request — tecnicoRevisorId sale del JWT (ver AdminActual), nunca de
-  // algo que el cliente pueda mandar en el body, para que nadie pueda
-  // marcar una viñeta como "revisada por" otra persona.
-  async marcarRevisada(nvineta: number, tecnicoRevisorId: number) {
+  // Marca la viñeta como revisada por el encargado (administrador) que hizo
+  // el request — adminId sale del JWT (ver AdminActual), nunca de algo que
+  // el cliente pueda mandar en el body, para que nadie pueda marcar una
+  // viñeta como "revisada por" otra persona.
+  async marcarRevisada(nvineta: number, adminId: number) {
     await this.findOne(nvineta); // dispara 404 si la viñeta no existe
 
     return this.prisma.vinetas.update({
       where: { nvineta },
-      data: { tecnico_reviso_id: tecnicoRevisorId },
+      data: { admin_reviso_id: adminId },
       include: INCLUDE_RELACIONES,
     });
   }
@@ -155,7 +161,7 @@ export class VinetasService {
 
     return this.prisma.vinetas.update({
       where: { nvineta },
-      data: { tecnico_reviso_id: null },
+      data: { admin_reviso_id: null },
       include: INCLUDE_RELACIONES,
     });
   }

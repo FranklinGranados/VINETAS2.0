@@ -15,10 +15,10 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { areasApi } from '../api/areas';
-import { equiposApi } from '../api/equipos';
-import { mensajeDeError } from '../api/errors';
-import type { Area, CreateEquipoPayload, Equipo } from '../api/types';
+import { areasApi } from '../../api/areas';
+import { equiposApi } from '../../api/equipos';
+import { mensajeDeError } from '../../api/errors';
+import type { Area, CreateEquipoPayload, Equipo } from '../../api/types';
 import {
   INFO_RANGOS,
   INFO_SENALES,
@@ -42,7 +42,7 @@ interface NuevoEquipoValues {
   tag_area: string; // código de área, ej "01"
   tag_sub_area: string; // código de sub-área, ej "02"
   // TAG manual: para ubicaciones con TAG de formato propio (Caldera Mitre,
-  // Turbo TGM — ver UBICACIONES_TAG_ESPECIAL) o cualquier otra excepción.
+  // Turbo TGM — sub_areas.tag_especial) o cualquier otra excepción.
   tag_manual: boolean;
   tag_libre?: string;
   tag_variable?: string;
@@ -84,13 +84,13 @@ function buscarUbicacion(areas: Area[] | undefined, v: Partial<NuevoEquipoValues
 
 // ¿Este formulario va con TAG manual? Obligatorio en las ubicaciones con
 // TAG especial; opcional (casilla) en el resto.
-function usaTagManual(v: Partial<NuevoEquipoValues>): boolean {
-  return tieneTagEspecial(v.tag_area, v.tag_sub_area) || Boolean(v.tag_manual);
+function usaTagManual(v: Partial<NuevoEquipoValues>, areas: Area[] | undefined): boolean {
+  return tieneTagEspecial(areas, v.tag_area, v.tag_sub_area) || Boolean(v.tag_manual);
 }
 
 // El TAG final, sea cual sea el modo.
-function tagFinal(v: Partial<NuevoEquipoValues>): string {
-  return usaTagManual(v) ? (v.tag_libre ?? '').trim().toUpperCase() : armarTag(v);
+function tagFinal(v: Partial<NuevoEquipoValues>, areas: Area[] | undefined): string {
+  return usaTagManual(v, areas) ? (v.tag_libre ?? '').trim().toUpperCase() : armarTag(v);
 }
 
 export function NuevoEquipoModal({ open, onClose }: Props) {
@@ -108,9 +108,9 @@ export function NuevoEquipoModal({ open, onClose }: Props) {
   // campo — así la vista previa del TAG / ubicación / información se
   // actualiza mientras se escribe (en v1 solo se veía al guardar).
   const valores = Form.useWatch([], form) ?? {};
-  const especial = tieneTagEspecial(valores.tag_area, valores.tag_sub_area);
-  const manual = usaTagManual(valores);
-  const tag = tagFinal(valores);
+  const especial = tieneTagEspecial(areas, valores.tag_area, valores.tag_sub_area);
+  const manual = usaTagManual(valores, areas);
+  const tag = tagFinal(valores, areas);
   const informacion = armarInformacion(valores);
   const ubicacion = buscarUbicacion(areas, valores);
   const areaElegida = areas?.find((a) => a.codigo === valores.tag_area);
@@ -164,7 +164,7 @@ export function NuevoEquipoModal({ open, onClose }: Props) {
     }
     guardar.mutate({
       sub_area_id: destino.subArea.id,
-      tag: tagFinal(v),
+      tag: tagFinal(v, areas),
       descripcion: aTitleCase(v.descripcion),
       informacion: info,
     });

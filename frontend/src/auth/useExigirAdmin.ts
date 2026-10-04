@@ -6,6 +6,10 @@ import { useAuth } from './AuthContext';
 // que se pidió la acción, para volver ahí después de iniciar sesión.
 export interface EstadoLogin {
   desde?: string;
+  // true = "desde" es una pantalla de solo administradores (lo marca
+  // RutaAdmin). Sin sesión no tiene sentido volver ahí: rebotaría otra vez
+  // al login. "Volver sin iniciar sesión" va al Inicio en ese caso.
+  soloAdmin?: boolean;
 }
 
 // Equivalente en el frontend a un "middleware" de autenticación: envuelve

@@ -19,7 +19,7 @@ import { decodeJwtPayload, tokenEstaVencido, type JwtPayload } from './jwt';
 interface AuthContextValue {
   // null = nadie ha iniciado sesión (o el token guardado venció/es inválido).
   admin: JwtPayload | null;
-  login: (codEmpleado: number, password: string) => Promise<void>;
+  login: (usuario: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -64,11 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(AUTH_LOGOUT_EVENT, handleLogout);
   }, [navigate]);
 
-  const login = useCallback(async (codEmpleado: number, password: string) => {
-    const { accessToken } = await authApi.login({
-      cod_empleado: codEmpleado,
-      password,
-    });
+  const login = useCallback(async (usuario: string, password: string) => {
+    const { accessToken } = await authApi.login({ usuario, password });
     const payload = decodeJwtPayload(accessToken);
     if (!payload) {
       // No debería pasar nunca (el backend firma tokens válidos), pero si

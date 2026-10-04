@@ -1,7 +1,12 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { traducirErrorDePrisma } from '../common/prisma-error.util';
+import { formatoTag, formatoTitulo } from '../common/formato-texto';
 import { CreateEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
 
@@ -37,11 +42,12 @@ export class EquiposService {
   }
 
   async create(dto: CreateEquipoDto) {
+    const datos = this.aplicarFormato(dto);
     try {
-      return await this.prisma.equipos.create({ data: dto });
+      return await this.prisma.equipos.create({ data: datos });
     } catch (error) {
       traducirErrorDePrisma(error, {
-        duplicado: `Ya existe un equipo con TAG "${dto.tag}"`,
+        duplicado: `Ya existe un equipo con TAG "${datos.tag}"`,
         referenciaInvalida: `La sub-área ${dto.sub_area_id} no existe`,
       });
     }
@@ -50,14 +56,15 @@ export class EquiposService {
   async update(id: number, dto: UpdateEquipoDto) {
     await this.findOne(id); // dispara 404 si el equipo no existe
 
+    const datos = this.aplicarExclusionDeEstados(this.aplicarFormato(dto));
     try {
       return await this.prisma.equipos.update({
         where: { id },
-        data: this.aplicarExclusionDeEstados(dto),
+        data: datos,
       });
     } catch (error) {
       traducirErrorDePrisma(error, {
-        duplicado: `Ya existe un equipo con TAG "${dto.tag}"`,
+        duplicado: `Ya existe un equipo con TAG "${datos.tag}"`,
         referenciaInvalida: `La sub-área ${dto.sub_area_id} no existe`,
       });
     }
@@ -93,5 +100,20 @@ export class EquiposService {
     if (dto.hibernacion === true) return { ...dto, en_uso: false };
     if (dto.en_uso === true) return { ...dto, hibernacion: false };
     return dto;
+  }
+
+  // Formato obligatorio (ver common/formato-texto.ts): TAG en mayúsculas y
+  // descripción con mayúscula inicial en cada palabra. Solo toca los campos
+  // que vienen en el request (en un PATCH parcial, el resto no se envía).
+  private aplicarFormato<T extends { tag?: string; descripcion?: string }>(
+    dto: T,
+  ): T {
+    return {
+      ...dto,
+      ...(dto.tag !== undefined && { tag: formatoTag(dto.tag) }),
+      ...(dto.descripcion !== undefined && {
+        descripcion: formatoTitulo(dto.descripcion),
+      }),
+    };
   }
 }

@@ -3,15 +3,16 @@ import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { App, Button, Space, Table, Tag, Typography } from 'antd';
 import { CheckCircleOutlined, EditOutlined, PrinterOutlined, UndoOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { vinetasApi } from '../api/vinetas';
-import { mensajeDeError } from '../api/errors';
-import type { Vineta } from '../api/types';
-import { useAuth } from '../auth/AuthContext';
-import { ErrorDeCarga } from '../components/ErrorDeCarga';
-import { FiltroListado } from '../components/FiltroListado';
-import { useFlujoVineta } from '../components/useFlujoVineta';
-import { coincide } from '../utils/busqueda';
-import { formatoDMY, formatoMY } from '../utils/fechas';
+import { consultaVinetas } from '../../api/consultas';
+import { vinetasApi } from '../../api/vinetas';
+import { mensajeDeError } from '../../api/errors';
+import type { Vineta } from '../../api/types';
+import { useAuth } from '../../auth/AuthContext';
+import { ErrorDeCarga } from '../../components/ErrorDeCarga';
+import { FiltroListado } from '../../components/FiltroListado';
+import { useFlujoVineta } from './useFlujoVineta';
+import { coincide } from '../../utils/busqueda';
+import { formatoDMY, formatoMY } from '../../utils/fechas';
 
 const { Title } = Typography;
 
@@ -19,16 +20,14 @@ export function VinetasPage() {
   const { admin } = useAuth();
   const queryClient = useQueryClient();
   const { message } = App.useApp();
-  // Reimprimir / modificar (ver components/useFlujoVineta).
+  // Reimprimir / modificar (ver modulos/vinetas/useFlujoVineta).
   const flujoVineta = useFlujoVineta();
 
   const [busqueda, setBusqueda] = useState('');
   const [areaId, setAreaId] = useState<number | undefined>();
 
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['vinetas'],
-    queryFn: () => vinetasApi.getAll(),
-  });
+  // Misma consulta que precarga el menú al pasar el mouse (api/consultas.ts).
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery(consultaVinetas());
 
   // Una mutation para marcar y otra para quitar — así cada botón sabe
   // exactamente cuál viñeta está en curso (mutation.variables) sin tener
@@ -119,21 +118,21 @@ export function VinetasPage() {
           (quitar.isPending && quitar.variables === vineta.nvineta);
 
         if (!admin) {
-          return vineta.tecnico_revisor ? (
-            <Tag color="green">{vineta.tecnico_revisor.nombre}</Tag>
+          return vineta.admin_revisor ? (
+            <Tag color="green">{vineta.admin_revisor.nombre}</Tag>
           ) : (
             <Tag color="orange">Pendiente</Tag>
           );
         }
 
-        return vineta.tecnico_revisor ? (
+        return vineta.admin_revisor ? (
           <Button
             size="small"
             icon={<UndoOutlined />}
             loading={revisando}
             onClick={() => quitar.mutate(vineta.nvineta)}
           >
-            {vineta.tecnico_revisor.nombre} — quitar
+            {vineta.admin_revisor.nombre} — quitar
           </Button>
         ) : (
           <Button
@@ -182,7 +181,7 @@ export function VinetasPage() {
         v.equipos?.sub_areas?.nombre,
         v.equipos?.sub_areas?.areas?.nombre,
         v.tecnicos?.nombre,
-        v.tecnico_revisor?.nombre,
+        v.admin_revisor?.nombre,
         formatoDMY(v.fecha),
         formatoMY(v.proximo),
         v.periodo,

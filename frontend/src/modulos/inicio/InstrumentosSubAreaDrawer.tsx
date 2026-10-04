@@ -3,11 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Button, Drawer, Progress, Segmented, Space, Table, Tag, Typography } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { dashboardApi } from '../api/dashboard';
-import type { InstrumentoConVineta } from '../api/types';
-import { formatoDMY } from '../utils/fechas';
-import { colorAvance } from '../utils/avance';
-import { ErrorDeCarga } from './ErrorDeCarga';
+import { consultaInstrumentosSubArea } from '../../api/consultas';
+import type { InstrumentoConVineta } from '../../api/types';
+import { formatoDMY } from '../../utils/fechas';
+import { colorAvance } from '../../utils/avance';
+import { ErrorDeCarga } from '../../components/ErrorDeCarga';
 
 interface Props {
   // null = cerrado.
@@ -26,11 +26,11 @@ type Filtro = 'todos' | 'pendientes' | 'vinetados';
 export function InstrumentosSubAreaDrawer({ subAreaId, periodo, onClose, onImprimir }: Props) {
   const [filtro, setFiltro] = useState<Filtro>('todos');
 
-  // queryKey bajo el prefijo 'dashboard': al crear una viñeta, el
-  // formulario invalida ['dashboard'] y esta lista se refresca sola.
+  // Misma consulta que se precarga al pasar el mouse por la sub-área en el
+  // Inicio (api/consultas.ts): si ya está en caché, el panel abre lleno.
+  // Con el panel cerrado (null) no se pide nada; el 0 nunca llega a usarse.
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['dashboard', 'sub-area', subAreaId, periodo],
-    queryFn: () => dashboardApi.instrumentosDeSubArea(subAreaId!, periodo),
+    ...consultaInstrumentosSubArea(subAreaId ?? 0, periodo),
     enabled: subAreaId !== null,
   });
 
