@@ -1,18 +1,59 @@
 # Viñetas — Sistema de gestión de mantenimiento e inspección de instrumentos
 
-Ingenio La Cabaña — Departamento de Metrología e Instrumentación.
+Departamento de Metrología e Instrumentación de un ingenio azucarero.
 
 Rediseño web del sistema de viñetas (etiquetas de mantenimiento y calibración de
 instrumentos industriales), desarrollado como proyecto de práctica de bootcamp full-stack.
 Reemplaza a un sistema anterior en Windows Forms + C# + Crystal Reports + SQL Server Express,
-que sigue en producción durante la transición y **no forma parte de este repositorio**.
+que sigue en uso y **no forma parte de este repositorio**.
+
+> **Estado: en fase de pruebas.** El sistema nuevo todavía no está en producción: se está
+> probando en un entorno aparte, sin conectarse a la operación de la planta.
+
+## Capturas
+
+> Tomadas en un entorno de demostración con **datos ficticios** (técnicos, equipos y viñetas
+> inventados).
+
+**Inicio — avance del mantenimiento.** Instrumentos con viñeta en la temporada, avance por grupo
+de trabajo y por área, y cuánto se avanzó desde el corte semanal (jueves).
+
+![Inicio con el avance del mantenimiento](media/capturas/01-inicio-avance.png)
+
+**Instrumentos de una sub-área.** Al hacer clic en una sub-área se ven sus instrumentos: los que
+ya tienen viñeta (N°, fecha y técnico) y los pendientes, con botón para imprimir.
+
+![Instrumentos de una sub-área](media/capturas/02-instrumentos-sub-area.png)
+
+**Nueva viñeta.** Fecha de hoy y próximo mantenimiento a un año, técnico que la realizó y el
+registro del trabajo. Al guardar se abre la impresión.
+
+![Formulario de nueva viñeta](media/capturas/03-nueva-vineta.png)
+
+**Etiqueta.** Vista previa de la viñeta para la impresora Brady M611 (38.1 × 25.4 mm), con código
+de barras Code 39 del TAG.
+
+![Vista previa de la etiqueta](media/capturas/06-etiqueta.png)
+
+**Listado de viñetas.** Búsqueda y filtro por área; con sesión de administrador se marca qué
+viñetas fueron revisadas.
+
+![Listado de viñetas](media/capturas/05-vinetas.png)
+
+**Administración** (requiere iniciar sesión).
+
+| Acceso de administrador | Grupos de trabajo |
+|---|---|
+| ![Login](media/capturas/04-login.png) | ![Grupos de trabajo](media/capturas/07-grupos.png) |
+| **Áreas y sub-áreas** | **Técnicos** |
+| ![Áreas y sub-áreas](media/capturas/08-areas.png) | ![Técnicos](media/capturas/09-tecnicos.png) |
 
 | Carpeta | Contenido |
 |---|---|
 | [`database/`](database/) | `schema.sql` — script de creación de la base de datos MySQL |
 | [`backend/`](backend/) | API en NestJS + Prisma |
 | [`frontend/`](frontend/) | Interfaz web en React + Vite + TypeScript |
-| [`media/`](media/) | Foto de la viñeta original (referencia de diseño) y logo |
+| [`media/`](media/) | Foto de la viñeta original (referencia de diseño), logo y `capturas/` del README |
 | [`CLAUDE.md`](CLAUDE.md) | Contexto del proyecto para Claude Code (decisiones, estado, pendientes). Se actualiza en cada commit |
 | [`.claude/`](.claude/) | Configuración compartida de Claude Code: hook que exige actualizar `CLAUDE.md` en cada commit |
 

@@ -1,7 +1,7 @@
 -- =============================================================================
 -- BASE DE DATOS: vinetas
 -- Sistema de gestión de mantenimiento e inspección de instrumentos industriales
--- Ingenio La Cabaña — Departamento de Metrología e Instrumentación
+-- Departamento de Metrología e Instrumentación de un ingenio azucarero
 -- =============================================================================
 
 -- Este archivo está en UTF-8. SET NAMES le dice a MySQL cómo interpretar

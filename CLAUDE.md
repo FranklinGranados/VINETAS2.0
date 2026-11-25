@@ -75,6 +75,16 @@ usarse en otro módulo, se sube a `components/`.
 diseño en `AcercaDePage.tsx` + `TarjetaPersona.tsx` (reusada para los dos creadores). Repo público:
 sin teléfonos/correos personales.
 
+**Capturas del README** (2026-11-25, para LinkedIn): `media/capturas/01…09-*.png` (Inicio, sub-área,
+nueva viñeta, login, viñetas, etiqueta, grupos, áreas, técnicos; Equipos NO, a pedido del usuario).
+El README las presenta como **fase de pruebas** (no decir que está en producción). Se tomaron con
+Playwright contra un stack Docker APARTE (`docker compose -p vinetas-demo`, puertos 8091/3308, `.env`
+temporal) con datos **ficticios** generados por script (técnicos inventados, 114 equipos, 51 viñetas,
+4 grupos) y se borró después (`down -v`). Nunca capturar la BD de desarrollo: tiene nombres reales.
+Decisión del usuario para lo público: NO mostrar el nombre del ingenio (README y schema.sql dicen
+"un ingenio azucarero"; sigue en commits viejos) y el logo MTI va **difuminado** en
+`06-etiqueta.png` (la app no cambia). Si se rehacen las capturas, volver a difuminarlo.
+
 ```
 database/  schema.sql  (BD MySQL nueva; la carga Docker en el primer arranque) + migraciones/
 media/     foto de la viñeta original + logo
@@ -340,6 +350,11 @@ empresa (única con acceso al servidor) y con esa salida programar el adaptador.
 - Al probar con servidores propios, no dejar procesos ocupando 3000/5173: chocan con los del usuario.
 - antd 6: `Divider` usa `titlePlacement="start"` (ya no `orientation="left"`); los avisos flotantes
   son `.ant-message-notice` (para selectores de Playwright).
+- nginx: `try_files $uri $uri/ /index.html` rompía F5 en `/areas` (choca con la carpeta
+  `public/areas/` de los GIF → redirige a `/areas/` sin el puerto → 404). Quedó `try_files $uri
+  /index.html`. No crear carpetas en `public/` con el mismo nombre que una ruta sin revisar esto.
+- antd 6 en Playwright: `.ant-drawer-content`/`.ant-modal-content` no sirven para esperar; esperar
+  por el texto del título.
 - Reescribir archivos con un script (abrir en modo "w") puede hacer que Vite lea el archivo VACÍO a
   mitad de escritura y lo deje en caché ("does not provide an export named …") → `touch` al archivo.
 
